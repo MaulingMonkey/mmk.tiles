@@ -75,14 +75,12 @@ namespace mmk.tiles {
 	export class DenseTileRenderer {
 		private config:             DenseTileRendererConfig;
 		private canvas:             HTMLCanvasElement;
-		private imageData:          ImageData;
 
 		private ensureCanvasSizeTiles(canvas: HTMLCanvasElement, w: number, h: number): boolean { return ensureCanvasSizePixels(canvas, this.config.tileSize.w * w, this.config.tileSize.h * h); }
 
 		constructor(config: DenseTileRendererConfig) {
 			this.config = config;
 			this.canvas = document.createElement("canvas");
-			this.imageData = new ImageData(1,1);
 		}
 
 		render(args: DenseTileRendererArgs): void {
@@ -110,7 +108,6 @@ namespace mmk.tiles {
 			let tStartRenderToCanvas = Date.now();
 
 			// v1: Brute force
-			if (this.imageData === undefined)
 			{
 				const canvas             = this.canvas;
 
@@ -126,28 +123,6 @@ namespace mmk.tiles {
 					const sprites = getTile(tileX, tileY);
 					for (let i=0; i<sprites.length; ++i) sprites[i].drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
 				}
-			}
-			else
-			{
-				this.ensureCanvasSizeTiles(this.canvas, maxTileX-minTileX+1, maxTileY-minTileY+1);
-
-				if (this.imageData.width < this.canvas.width || this.imageData.height < this.canvas.height) this.imageData = new ImageData(Math.max(this.imageData.width, this.canvas.width), Math.max(this.imageData.height, this.canvas.height));
-				//if (this.imageData.width !== this.canvas.width || this.imageData.height !== this.canvas.height) this.imageData = new ImageData(this.canvas.width, this.canvas.height);
-
-				const imageData = this.imageData;
-				imageData.data.fill(0, 0, imageData.data.length);
-
-				for (let tileDy=0; tileDy<tilesTall; ++tileDy) for (let tileDx=0; tileDx<tilesWide; ++tileDx) {
-					const tileX = tileDx + minTileX;
-					const tileY = tileDy + minTileY;
-					const tilePixelX = tileDx * tileW;
-					const tilePixelY = tileDy * tileH;
-					const sprites = getTile(tileX, tileY);
-					for (let i=0; i<sprites.length; ++i) sprites[i].drawToImageData(imageData, tilePixelX, tilePixelY, tileW, tileH);
-					//for (let i=0; i<sprites.length; ++i) sprites[i].drawToImageDataNoClip(imageData, tilePixelX, tilePixelY, tileW, tileH);
-				}
-
-				this.canvas.getContext("2d").putImageData(this.imageData, 0, 0);
 			}
 
 			let tStartRenderToTarget = Date.now();

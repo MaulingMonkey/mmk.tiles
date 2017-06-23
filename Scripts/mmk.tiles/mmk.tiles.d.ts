@@ -27,7 +27,6 @@ declare namespace mmk.tiles {
     class DenseTileRenderer {
         private config;
         private canvas;
-        private imageData;
         private ensureCanvasSizeTiles(canvas, w, h);
         constructor(config: DenseTileRendererConfig);
         render(args: DenseTileRendererArgs): void;
@@ -51,8 +50,6 @@ declare namespace mmk.tiles {
 declare namespace mmk.tiles {
     interface SpriteRenderer {
         drawToContext(context: CanvasRenderingContext2D, cx: number, cy: number, cw: number, ch: number): void;
-        drawToImageData(imageData: ImageData, cx: number, cy: number, cw: number, ch: number): void;
-        drawToImageDataNoClip(imageData: ImageData, cx: number, cy: number, cw: number, ch: number): void;
     }
     function createSpriteRendererImgPixels(img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number): SpriteRenderer;
 }

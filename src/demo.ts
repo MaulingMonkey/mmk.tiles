@@ -31,7 +31,6 @@ namespace mmk.tiles {
 		};
 
 		img.addEventListener("load", function(){
-			// Redraw the whole universe
 			const w = demo.clientWidth  = demo.width;
 			const h = demo.clientHeight = demo.height;
 
@@ -65,14 +64,6 @@ namespace mmk.tiles {
 				return tiles;
 			}
 
-			function eachTile(onTile: (tile: SpriteRenderer, offX: number, offY: number)=>void) {
-				for (let y=0; y<worldH; ++y) for (let x=0; x<worldW; ++x) {
-					let tiles = getTile(x,y);
-					for (let iTile=0; iTile<tiles.length; ++iTile) { onTile(tiles[iTile], x*tileW, y*tileH); }
-				}
-			}
-
-
 			let renderer = createDenseMapLayerRenderer({
 				tileSize: { w: 16, h: 16 },
 				getTile,
@@ -100,29 +91,17 @@ namespace mmk.tiles {
 			let imgData : ImageData;
 			eachFrame(function(){
 				let start = Date.now();
-				const cached = true;
-				const blit = true;
-				if (cached) {
-					let mouseTile = renderer.pixelToTile(orientation, mousePixel);
-					curX = Math.round(mouseTile.x);
-					curY = Math.round(mouseTile.y);
-					benchmark("clear demo", function()
-					{
-						const c = demo.getContext("2d");
-						c.setTransform(1,0,0,1,0,0);
-						c.clearRect(0,0,demo.width,demo.height);
-					});
-					orientation.rotation = Math.cos(Date.now()/1000)/10;
-					renderer.render(orientation);
-				} else if (blit) {
-					const context = demo.getContext("2d");
-					if (imgData === undefined || imgData.width !== w || imgData.height !== h) imgData = new ImageData(w, h);
-					eachTile(function(sr,x,y) { sr.drawToImageData(imgData, x, y, tileW, tileH); });
-					context.putImageData(imgData, 0, 0, 0, 0, w, h);
-				} else {
-					const context = demo.getContext("2d");
-					eachTile(function(sr,x,y) { sr.drawToContext(context, x, y, tileW, tileH); });
-				}
+				let mouseTile = renderer.pixelToTile(orientation, mousePixel);
+				curX = Math.round(mouseTile.x);
+				curY = Math.round(mouseTile.y);
+				benchmark("clear demo", function()
+				{
+					const c = demo.getContext("2d");
+					c.setTransform(1,0,0,1,0,0);
+					c.clearRect(0,0,demo.width,demo.height);
+				});
+				orientation.rotation = Math.cos(Date.now()/1000)/10;
+				renderer.render(orientation);
 				let end = Date.now();
 				benchmark("---------------------------", 0);
 				benchmark("Total"                      , end-start);
