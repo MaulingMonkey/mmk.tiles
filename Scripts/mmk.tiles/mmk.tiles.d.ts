@@ -20,8 +20,7 @@ declare namespace mmk.tiles {
     class DenseTileRenderer {
         private config;
         private canvas;
-        private canvasNext;
-        private canvasCurrentTiles;
+        private imageData;
         private ensureCanvasSizeTiles(canvas, w, h);
         constructor(config: DenseTileRendererConfig);
         render(args: DenseTileRendererArgs): void;

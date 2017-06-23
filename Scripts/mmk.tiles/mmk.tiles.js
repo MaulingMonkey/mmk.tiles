@@ -179,8 +179,7 @@ var mmk;
             function DenseTileRenderer(config) {
                 this.config = config;
                 this.canvas = document.createElement("canvas");
-                this.canvasNext = document.createElement("canvas");
-                this.canvasCurrentTiles = { x: 0, y: 0, w: 0, h: 0 };
+                this.imageData = new ImageData(1, 1);
             }
             DenseTileRenderer.prototype.ensureCanvasSizeTiles = function (canvas, w, h) { return ensureCanvasSizePixels(canvas, this.config.tileSize.w * w, this.config.tileSize.h * h); };
             DenseTileRenderer.prototype.render = function (args) {
@@ -192,21 +191,19 @@ var mmk;
                 var tr = pixelToTile(orient, { x: target.width, y: 0 });
                 var br = pixelToTile(orient, { x: target.width, y: target.height });
                 var bl = pixelToTile(orient, { x: 0, y: target.height });
-                var minTileX = Math.floor(Math.min(tl.x, tr.x, br.x, bl.x));
-                var minTileY = Math.floor(Math.min(tl.y, tr.y, br.y, bl.y));
-                var maxTileX = Math.ceil(Math.max(tl.x, tr.x, br.x, bl.x));
-                var maxTileY = Math.ceil(Math.max(tl.y, tr.y, br.y, bl.y));
+                var minTileX = Math.round(Math.min(tl.x, tr.x, br.x, bl.x));
+                var minTileY = Math.round(Math.min(tl.y, tr.y, br.y, bl.y));
+                var maxTileX = Math.round(Math.max(tl.x, tr.x, br.x, bl.x));
+                var maxTileY = Math.round(Math.max(tl.y, tr.y, br.y, bl.y));
                 var tilesWide = maxTileX - minTileX + 1;
                 var tilesTall = maxTileY - minTileY + 1;
+                var getTile = this.config.getTile;
                 // v1: Brute force
-                {
-                    var getTile = this.config.getTile;
+                if (this.imageData === undefined) {
                     var canvas = this.canvas;
-                    var canvasNext = this.canvasNext;
-                    var canvasCurrentTiles = this.canvasCurrentTiles;
-                    this.ensureCanvasSizeTiles(canvasNext, maxTileX - minTileX + 1, maxTileY - minTileY + 1);
-                    var context = canvasNext.getContext("2d");
-                    context.clearRect(0, 0, canvasNext.width, canvasNext.height);
+                    this.ensureCanvasSizeTiles(canvas, maxTileX - minTileX + 1, maxTileY - minTileY + 1);
+                    var context = canvas.getContext("2d");
+                    context.clearRect(0, 0, canvas.width, canvas.height);
                     for (var tileDy = 0; tileDy < tilesTall; ++tileDy)
                         for (var tileDx = 0; tileDx < tilesWide; ++tileDx) {
                             var tileX = tileDx + minTileX;
@@ -217,10 +214,25 @@ var mmk;
                             for (var i = 0; i < sprites.length; ++i)
                                 sprites[i].drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
                         }
-                    // Swap buffers, write back
-                    this.canvas = canvasNext;
-                    this.canvasNext = canvas;
-                    this.canvasCurrentTiles = canvasCurrentTiles;
+                }
+                else {
+                    this.ensureCanvasSizeTiles(this.canvas, maxTileX - minTileX + 1, maxTileY - minTileY + 1);
+                    if (this.imageData.width < this.canvas.width || this.imageData.height < this.canvas.height)
+                        this.imageData = new ImageData(Math.max(this.imageData.width, this.canvas.width), Math.max(this.imageData.height, this.canvas.height));
+                    //if (this.imageData.width !== this.canvas.width || this.imageData.height !== this.canvas.height) this.imageData = new ImageData(this.canvas.width, this.canvas.height);
+                    var imageData = this.imageData;
+                    imageData.data.fill(0, 0, imageData.data.length);
+                    for (var tileDy = 0; tileDy < tilesTall; ++tileDy)
+                        for (var tileDx = 0; tileDx < tilesWide; ++tileDx) {
+                            var tileX = tileDx + minTileX;
+                            var tileY = tileDy + minTileY;
+                            var tilePixelX = tileDx * tileW;
+                            var tilePixelY = tileDy * tileH;
+                            var sprites = getTile(tileX, tileY);
+                            for (var i = 0; i < sprites.length; ++i)
+                                sprites[i].drawToImageData(imageData, tilePixelX, tilePixelY, tileW, tileH);
+                        }
+                    this.canvas.getContext("2d").putImageData(this.imageData, 0, 0);
                 }
                 // Draw to 'real' target
                 {

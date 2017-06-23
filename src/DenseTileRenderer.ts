@@ -14,14 +14,10 @@
 
 namespace mmk.tiles {
 	export type DenseMapCallback  = (x: number, y: number) => SpriteRenderer[];
-	//export type SparseSpriteRef = {x: number; y: number; sprites: SpriteRenderer[];};
-	//export type SparseMapCallback = ()                     => SparseSpriteRef[];
 
 	export interface DenseTileRendererConfig {
 		getTile:       DenseMapCallback;
 		tileSize:      Size; // e.g. 16x16
-		//chunkSize?:    Size; // e.g. 8x8?
-		// rounding config?
 	}
 
 	export interface DenseTileRendererOrientation {
@@ -78,16 +74,14 @@ namespace mmk.tiles {
 	export class DenseTileRenderer {
 		private config:             DenseTileRendererConfig;
 		private canvas:             HTMLCanvasElement;
-		private canvasNext:         HTMLCanvasElement;
-		private canvasCurrentTiles: Rect;
+		private imageData:          ImageData;
 
 		private ensureCanvasSizeTiles(canvas: HTMLCanvasElement, w: number, h: number): boolean { return ensureCanvasSizePixels(canvas, this.config.tileSize.w * w, this.config.tileSize.h * h); }
 
 		constructor(config: DenseTileRendererConfig) {
-			this.config             = config;
-			this.canvas             = document.createElement("canvas");
-			this.canvasNext         = document.createElement("canvas");
-			this.canvasCurrentTiles = { x: 0, y: 0, w: 0, h: 0 };
+			this.config = config;
+			this.canvas = document.createElement("canvas");
+			this.imageData = new ImageData(1,1);
 		}
 
 		render(args: DenseTileRendererArgs): void {
@@ -101,23 +95,23 @@ namespace mmk.tiles {
 			const br = pixelToTile(orient, {x: target.width, y: target.height});
 			const bl = pixelToTile(orient, {x: 0           , y: target.height});
 
-			const minTileX = Math.floor(Math.min(tl.x, tr.x, br.x, bl.x));
-			const minTileY = Math.floor(Math.min(tl.y, tr.y, br.y, bl.y));
-			const maxTileX = Math.ceil (Math.max(tl.x, tr.x, br.x, bl.x));
-			const maxTileY = Math.ceil (Math.max(tl.y, tr.y, br.y, bl.y));
+			const minTileX = Math.round(Math.min(tl.x, tr.x, br.x, bl.x));
+			const minTileY = Math.round(Math.min(tl.y, tr.y, br.y, bl.y));
+			const maxTileX = Math.round(Math.max(tl.x, tr.x, br.x, bl.x));
+			const maxTileY = Math.round(Math.max(tl.y, tr.y, br.y, bl.y));
 			const tilesWide = maxTileX - minTileX + 1;
 			const tilesTall = maxTileY - minTileY + 1;
 
-			// v1: Brute force
-			{
-				const getTile            = this.config.getTile;
-				const canvas             = this.canvas;
-				const canvasNext         = this.canvasNext;
-				let   canvasCurrentTiles = this.canvasCurrentTiles;
+			const getTile            = this.config.getTile;
 
-				this.ensureCanvasSizeTiles(canvasNext, maxTileX-minTileX+1, maxTileY-minTileY+1);
-				const context            = canvasNext.getContext("2d");
-				context.clearRect(0, 0, canvasNext.width, canvasNext.height);
+			// v1: Brute force
+			if (this.imageData === undefined)
+			{
+				const canvas             = this.canvas;
+
+				this.ensureCanvasSizeTiles(canvas, maxTileX-minTileX+1, maxTileY-minTileY+1);
+				const context            = canvas.getContext("2d");
+				context.clearRect(0, 0, canvas.width, canvas.height);
 
 				for (let tileDy=0; tileDy<tilesTall; ++tileDy) for (let tileDx=0; tileDx<tilesWide; ++tileDx) {
 					const tileX = tileDx + minTileX;
@@ -127,11 +121,27 @@ namespace mmk.tiles {
 					const sprites = getTile(tileX, tileY);
 					for (let i=0; i<sprites.length; ++i) sprites[i].drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
 				}
+			}
+			else
+			{
+				this.ensureCanvasSizeTiles(this.canvas, maxTileX-minTileX+1, maxTileY-minTileY+1);
 
-				// Swap buffers, write back
-				this.canvas             = canvasNext;
-				this.canvasNext         = canvas;
-				this.canvasCurrentTiles = canvasCurrentTiles;
+				if (this.imageData.width < this.canvas.width || this.imageData.height < this.canvas.height) this.imageData = new ImageData(Math.max(this.imageData.width, this.canvas.width), Math.max(this.imageData.height, this.canvas.height));
+				//if (this.imageData.width !== this.canvas.width || this.imageData.height !== this.canvas.height) this.imageData = new ImageData(this.canvas.width, this.canvas.height);
+
+				const imageData = this.imageData;
+				imageData.data.fill(0, 0, imageData.data.length);
+
+				for (let tileDy=0; tileDy<tilesTall; ++tileDy) for (let tileDx=0; tileDx<tilesWide; ++tileDx) {
+					const tileX = tileDx + minTileX;
+					const tileY = tileDy + minTileY;
+					const tilePixelX = tileDx * tileW;
+					const tilePixelY = tileDy * tileH;
+					const sprites = getTile(tileX, tileY);
+					for (let i=0; i<sprites.length; ++i) sprites[i].drawToImageData(imageData, tilePixelX, tilePixelY, tileW, tileH);
+				}
+
+				this.canvas.getContext("2d").putImageData(this.imageData, 0, 0);
 			}
 
 			// Draw to 'real' target
