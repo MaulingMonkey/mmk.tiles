@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package>
+	<metadata>
+		<id>mmk.tiles</id>
+		<version>0.0.0</version>
+		<authors>MaulingMonkey</authors>
+		<owners>MaulingMonkey</owners>
+		<projectUrl>https://github.com/MaulingMonkey/mmk.tiles</projectUrl>
+		<licenseUrl>http://www.apache.org/licenses/LICENSE-2.0</licenseUrl>
+		<description>...</description>
+		<copyright>Copyright © MaulingMonkey 2017</copyright>
+		<tags>typescript ...</tags>
+	</metadata>
+	<files>
+		<file src="Scripts\mmk.tiles\**\*.d.ts"   target="Content\Scripts\mmk.tiles" />
+		<file src="Scripts\mmk.tiles\**\*.js"     target="Content\Scripts\mmk.tiles" />
+		<file src="Scripts\mmk.tiles\**\*.js.map" target="Content\Scripts\mmk.tiles" />
+	</files>
+</package>
