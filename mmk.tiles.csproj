@@ -32,6 +32,7 @@
   </ItemGroup>
   <ItemGroup>
     <TypeScriptCompile Include="src\benchmark.ts" />
+    <TypeScriptCompile Include="src\createTileset.ts" />
     <TypeScriptCompile Include="src\eachFrame.ts" />
     <TypeScriptCompile Include="src\_demo.ts" />
     <TypeScriptCompile Include="src\DenseTileRenderer.ts" />
@@ -39,6 +40,7 @@
     <TypeScriptCompile Include="src\SpriteRenderer.ts" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="res\tiles.json" />
     <None Include="web.Debug.config">
       <DependentUpon>web.config</DependentUpon>
     </None>

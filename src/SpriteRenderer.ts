@@ -17,6 +17,8 @@ namespace mmk.tiles {
 		drawToContext        (context:   CanvasRenderingContext2D, cx: number, cy: number, cw: number, ch: number): void;
 	}
 
+	function isLoaded(img: HTMLImageElement): boolean { return img.complete && img.naturalHeight !== 0; }
+
 	export function createSpriteRendererImgPixels(img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number): SpriteRenderer {
 		let renderer : SpriteRenderer = {
 			drawToContext:         function(context,   cx, cy, cw, ch) {},
@@ -32,7 +34,12 @@ namespace mmk.tiles {
 
 			renderer.drawToContext   = function(context, cx, cy, cw, ch) { context.drawImage(img, sx, sy, sw, sh, cx, cy, cw, ch); };
 		};
-		img.addEventListener("load", onLoad);
+		if (isLoaded(img)) onLoad(); // don't bother with the callback
+		else
+		{
+			img.addEventListener("load", onLoad);
+			if (isLoaded(img)) onLoad(); // loaded while registering callback?
+		}
 
 		return renderer;
 	}

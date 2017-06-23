@@ -1,10 +1,18 @@
 declare namespace mmk.tiles {
+}
+declare namespace mmk.tiles {
     function benchmark(desc: string, time: number | (() => void)): void;
 }
 declare namespace mmk.tiles {
-    function eachFrame(onFrame: () => void): void;
-}
-declare namespace mmk.tiles {
+    type TilesetJson = {
+        [id: string]: [number, number, number, number];
+    };
+    function createTileset(img: HTMLImageElement, json: TilesetJson): {
+        [id: string]: SpriteRenderer;
+    };
+    function getTileset(imgUrl: string, jsonUrl?: string): {
+        [id: string]: SpriteRenderer;
+    };
 }
 declare namespace mmk.tiles {
     type DenseMapCallback = (x: number, y: number) => SpriteRenderer[];
@@ -34,6 +42,9 @@ declare namespace mmk.tiles {
         private bakeOrientation(orient);
     }
     function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer;
+}
+declare namespace mmk.tiles {
+    function eachFrame(onFrame: () => void): void;
 }
 declare namespace mmk.tiles {
     interface XY {

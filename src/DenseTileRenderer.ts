@@ -121,7 +121,10 @@ namespace mmk.tiles {
 					const tilePixelX = tileDx * tileW;
 					const tilePixelY = tileDy * tileH;
 					const sprites = getTile(tileX, tileY);
-					for (let i=0; i<sprites.length; ++i) sprites[i].drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
+					for (let i=0; i<sprites.length; ++i) {
+						let sprite = sprites[i];
+						if (sprite !== undefined) sprite.drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
+					}
 				}
 			}
 
