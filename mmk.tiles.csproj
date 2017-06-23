@@ -33,7 +33,7 @@
   <ItemGroup>
     <TypeScriptCompile Include="src\benchmark.ts" />
     <TypeScriptCompile Include="src\eachFrame.ts" />
-    <TypeScriptCompile Include="src\demo.ts" />
+    <TypeScriptCompile Include="src\_demo.ts" />
     <TypeScriptCompile Include="src\DenseTileRenderer.ts" />
     <TypeScriptCompile Include="src\Rect.ts" />
     <TypeScriptCompile Include="src\SpriteRenderer.ts" />
