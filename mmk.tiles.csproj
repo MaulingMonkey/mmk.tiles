@@ -31,6 +31,7 @@
     <Content Include="Scripts\mmk.tiles\mmk.tiles.js.map" />
   </ItemGroup>
   <ItemGroup>
+    <TypeScriptCompile Include="src\benchmark.ts" />
     <TypeScriptCompile Include="src\eachFrame.ts" />
     <TypeScriptCompile Include="src\demo.ts" />
     <TypeScriptCompile Include="src\DenseTileRenderer.ts" />

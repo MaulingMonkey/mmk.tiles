@@ -16,6 +16,7 @@ namespace mmk.tiles {
 	export type DenseMapCallback  = (x: number, y: number) => SpriteRenderer[];
 
 	export interface DenseTileRendererConfig {
+		debugName?:    string;
 		getTile:       DenseMapCallback;
 		tileSize:      Size; // e.g. 16x16
 	}
@@ -85,6 +86,8 @@ namespace mmk.tiles {
 		}
 
 		render(args: DenseTileRendererArgs): void {
+			let tStart = Date.now();
+
 			const orient = this.bakeOrientation(args);
 			const target = args.target;
 			const tileW = this.config.tileSize.w;
@@ -103,6 +106,8 @@ namespace mmk.tiles {
 			const tilesTall = maxTileY - minTileY + 1;
 
 			const getTile            = this.config.getTile;
+
+			let tStartRenderToCanvas = Date.now();
 
 			// v1: Brute force
 			if (this.imageData === undefined)
@@ -139,10 +144,13 @@ namespace mmk.tiles {
 					const tilePixelY = tileDy * tileH;
 					const sprites = getTile(tileX, tileY);
 					for (let i=0; i<sprites.length; ++i) sprites[i].drawToImageData(imageData, tilePixelX, tilePixelY, tileW, tileH);
+					//for (let i=0; i<sprites.length; ++i) sprites[i].drawToImageDataNoClip(imageData, tilePixelX, tilePixelY, tileW, tileH);
 				}
 
 				this.canvas.getContext("2d").putImageData(this.imageData, 0, 0);
 			}
+
+			let tStartRenderToTarget = Date.now();
 
 			// Draw to 'real' target
 			{
@@ -150,6 +158,14 @@ namespace mmk.tiles {
 				context.setTransform(orient.cos, -orient.sin, orient.sin, orient.cos, orient.viewportAnchorX, orient.viewportAnchorY);
 				context.drawImage(this.canvas, orient.tileAnchorX + (minTileX - orient.focusX) * tileW, orient.tileAnchorY + (minTileY - orient.focusY) * tileH, this.canvas.width, this.canvas.height);
 			}
+
+			let tEnd = Date.now();
+
+			const prefix = this.config.debugName === undefined ? "" : this.config.debugName + " ";
+			benchmark(prefix+"precalc",          tStartRenderToCanvas - tStart);
+			benchmark(prefix+"render to canvas", tStartRenderToTarget - tStartRenderToCanvas);
+			benchmark(prefix+"render to target", tEnd                 - tStartRenderToTarget);
+			benchmark(prefix+"update benchmarks", Date.now()          - tEnd);
 		}
 
 		pixelToTile(args: DenseTileRendererOrientation, pixel: XY): XY {

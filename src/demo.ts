@@ -46,18 +46,19 @@ namespace mmk.tiles {
 			let curY = 3;
 
 			function getTile(x: number, y: number): SpriteRenderer[] {
-				if (x<0 || y<0 || x>=worldW || y>=worldH) return [];
-
-				let top   = y===0;
-				let bot   = y===worldH-1;
-				let left  = x===0;
-				let right = x===worldW-1;
-
-				let wall = bot || top || left || right;
-				let bottomWall = wall && (bot || (top && !(left || right)));
-
 				let tiles : SpriteRenderer[] = [];
-				tiles.push(tileMap[bottomWall ? "wallBottom" : wall ? "wallTop" : "floorDot"]);
+
+				if ((0 <= x) && (x < worldW) && (0 <= y) && (y < worldH)) {
+					let top   = y===0;
+					let bot   = y===worldH-1;
+					let left  = x===0;
+					let right = x===worldW-1;
+
+					let wall = bot || top || left || right;
+					let bottomWall = wall && (bot || (top && !(left || right)));
+
+					tiles.push(tileMap[bottomWall ? "wallBottom" : wall ? "wallTop" : "floorDot"]);
+				}
 				if (x === curX && y === curY) tiles.push(tileMap["selectTile"]);
 				if (x === 5 && y === 5) tiles.push(tileMap["selectDot"]);
 
@@ -105,11 +106,12 @@ namespace mmk.tiles {
 					let mouseTile = renderer.pixelToTile(orientation, mousePixel);
 					curX = Math.round(mouseTile.x);
 					curY = Math.round(mouseTile.y);
+					benchmark("clear demo", function()
 					{
 						const c = demo.getContext("2d");
 						c.setTransform(1,0,0,1,0,0);
 						c.clearRect(0,0,demo.width,demo.height);
-					}
+					});
 					orientation.rotation = Math.cos(Date.now()/1000)/10;
 					renderer.render(orientation);
 				} else if (blit) {
@@ -122,16 +124,8 @@ namespace mmk.tiles {
 					eachTile(function(sr,x,y) { sr.drawToContext(context, x, y, tileW, tileH); });
 				}
 				let end = Date.now();
-				{
-					const c = demo.getContext("2d");
-					c.setTransform(1,0,0,1,0,0);
-					c.fillStyle = "#000";
-					c.fillRect(19, 19, 32, 14);
-					c.fillStyle = "#FFF";
-					c.fillRect(20, 20, 30, 12);
-					c.fillStyle = "#000";
-					c.fillText(Math.round(end-start)+"ms", 20, 30);
-				}
+				benchmark("---------------------------", 0);
+				benchmark("Total"                      , end-start);
 			});
 		});
 		img.src = imgSrc;

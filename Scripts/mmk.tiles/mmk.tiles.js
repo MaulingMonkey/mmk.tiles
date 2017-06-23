@@ -14,6 +14,108 @@
 var mmk;
 (function (mmk) {
     var tiles;
+    (function (tiles) {
+        var times;
+        function benchmark(desc, time) {
+            if (times === undefined) {
+                if (time instanceof Function)
+                    time();
+                return;
+            }
+            if (time instanceof Function) {
+                var tStart = Date.now();
+                time();
+                var tEnd = Date.now();
+                time = tEnd - tStart;
+            }
+            times.push({ desc: desc, time: time });
+        }
+        tiles.benchmark = benchmark;
+        addEventListener("load", function () {
+            var div = document.getElementById("mmk-tiles-debug-profiling");
+            if (!div)
+                return;
+            times = [];
+            var table = document.createElement("table");
+            var thead = document.createElement("thead");
+            var thRow = document.createElement("tr");
+            var thDesc = document.createElement("th");
+            var thTime = document.createElement("th");
+            thDesc.textContent = "Description";
+            thDesc.style.minWidth = "20em";
+            thTime.textContent = "ms";
+            thTime.style.minWidth = "5em";
+            thRow.appendChild(thDesc);
+            thRow.appendChild(thTime);
+            thead.appendChild(thRow);
+            table.appendChild(thead);
+            var tbody = document.createElement("tbody");
+            table.appendChild(tbody);
+            div.appendChild(table);
+            var callback = function () {
+                requestAnimationFrame(callback);
+                while (!!tbody.lastChild)
+                    tbody.removeChild(tbody.lastChild); // clear
+                times.forEach(function (e) {
+                    var tdDesc = document.createElement("td");
+                    tdDesc.textContent = e.desc;
+                    var tdTime = document.createElement("td");
+                    tdTime.textContent = e.time.toFixed(0);
+                    var tr = document.createElement("tr");
+                    tr.appendChild(tdDesc);
+                    tr.appendChild(tdTime);
+                    tbody.appendChild(tr);
+                });
+                times = [];
+            };
+            requestAnimationFrame(callback);
+        });
+    })(tiles = mmk.tiles || (mmk.tiles = {}));
+})(mmk || (mmk = {}));
+// Copyright 2017 MaulingMonkey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+var mmk;
+(function (mmk) {
+    var tiles;
+    (function (tiles) {
+        function eachFrame(onFrame) {
+            var callback;
+            callback = function () {
+                requestAnimationFrame(callback);
+                onFrame();
+            };
+            callback();
+        }
+        tiles.eachFrame = eachFrame;
+    })(tiles = mmk.tiles || (mmk.tiles = {}));
+})(mmk || (mmk = {}));
+// Copyright 2017 MaulingMonkey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+var mmk;
+(function (mmk) {
+    var tiles;
     (function (tiles_1) {
         addEventListener("load", function () {
             var demo = document.getElementById("mmk-tiles-demo");
@@ -43,16 +145,16 @@ var mmk;
                 var curX = 3;
                 var curY = 3;
                 function getTile(x, y) {
-                    if (x < 0 || y < 0 || x >= worldW || y >= worldH)
-                        return [];
-                    var top = y === 0;
-                    var bot = y === worldH - 1;
-                    var left = x === 0;
-                    var right = x === worldW - 1;
-                    var wall = bot || top || left || right;
-                    var bottomWall = wall && (bot || (top && !(left || right)));
                     var tiles = [];
-                    tiles.push(tileMap[bottomWall ? "wallBottom" : wall ? "wallTop" : "floorDot"]);
+                    if ((0 <= x) && (x < worldW) && (0 <= y) && (y < worldH)) {
+                        var top_1 = y === 0;
+                        var bot = y === worldH - 1;
+                        var left = x === 0;
+                        var right = x === worldW - 1;
+                        var wall = bot || top_1 || left || right;
+                        var bottomWall = wall && (bot || (top_1 && !(left || right)));
+                        tiles.push(tileMap[bottomWall ? "wallBottom" : wall ? "wallTop" : "floorDot"]);
+                    }
                     if (x === curX && y === curY)
                         tiles.push(tileMap["selectTile"]);
                     if (x === 5 && y === 5)
@@ -97,11 +199,11 @@ var mmk;
                         var mouseTile = renderer.pixelToTile(orientation, mousePixel);
                         curX = Math.round(mouseTile.x);
                         curY = Math.round(mouseTile.y);
-                        {
+                        tiles_1.benchmark("clear demo", function () {
                             var c = demo.getContext("2d");
                             c.setTransform(1, 0, 0, 1, 0, 0);
                             c.clearRect(0, 0, demo.width, demo.height);
-                        }
+                        });
                         orientation.rotation = Math.cos(Date.now() / 1000) / 10;
                         renderer.render(orientation);
                     }
@@ -117,16 +219,8 @@ var mmk;
                         eachTile(function (sr, x, y) { sr.drawToContext(context_1, x, y, tileW, tileH); });
                     }
                     var end = Date.now();
-                    {
-                        var c = demo.getContext("2d");
-                        c.setTransform(1, 0, 0, 1, 0, 0);
-                        c.fillStyle = "#000";
-                        c.fillRect(19, 19, 32, 14);
-                        c.fillStyle = "#FFF";
-                        c.fillRect(20, 20, 30, 12);
-                        c.fillStyle = "#000";
-                        c.fillText(Math.round(end - start) + "ms", 20, 30);
-                    }
+                    tiles_1.benchmark("---------------------------", 0);
+                    tiles_1.benchmark("Total", end - start);
                 });
             });
             img.src = imgSrc;
@@ -183,6 +277,7 @@ var mmk;
             }
             DenseTileRenderer.prototype.ensureCanvasSizeTiles = function (canvas, w, h) { return ensureCanvasSizePixels(canvas, this.config.tileSize.w * w, this.config.tileSize.h * h); };
             DenseTileRenderer.prototype.render = function (args) {
+                var tStart = Date.now();
                 var orient = this.bakeOrientation(args);
                 var target = args.target;
                 var tileW = this.config.tileSize.w;
@@ -198,6 +293,7 @@ var mmk;
                 var tilesWide = maxTileX - minTileX + 1;
                 var tilesTall = maxTileY - minTileY + 1;
                 var getTile = this.config.getTile;
+                var tStartRenderToCanvas = Date.now();
                 // v1: Brute force
                 if (this.imageData === undefined) {
                     var canvas = this.canvas;
@@ -234,12 +330,19 @@ var mmk;
                         }
                     this.canvas.getContext("2d").putImageData(this.imageData, 0, 0);
                 }
+                var tStartRenderToTarget = Date.now();
                 // Draw to 'real' target
                 {
                     var context = args.target.getContext("2d");
                     context.setTransform(orient.cos, -orient.sin, orient.sin, orient.cos, orient.viewportAnchorX, orient.viewportAnchorY);
                     context.drawImage(this.canvas, orient.tileAnchorX + (minTileX - orient.focusX) * tileW, orient.tileAnchorY + (minTileY - orient.focusY) * tileH, this.canvas.width, this.canvas.height);
                 }
+                var tEnd = Date.now();
+                var prefix = this.config.debugName === undefined ? "" : this.config.debugName + " ";
+                tiles.benchmark(prefix + "precalc", tStartRenderToCanvas - tStart);
+                tiles.benchmark(prefix + "render to canvas", tStartRenderToTarget - tStartRenderToCanvas);
+                tiles.benchmark(prefix + "render to target", tEnd - tStartRenderToTarget);
+                tiles.benchmark(prefix + "update benchmarks", Date.now() - tEnd);
             };
             DenseTileRenderer.prototype.pixelToTile = function (args, pixel) {
                 var baked = this.bakeOrientation(args);
@@ -276,34 +379,6 @@ var mmk;
             return new DenseTileRenderer(config);
         }
         tiles.createDenseMapLayerRenderer = createDenseMapLayerRenderer;
-    })(tiles = mmk.tiles || (mmk.tiles = {}));
-})(mmk || (mmk = {}));
-// Copyright 2017 MaulingMonkey
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-var mmk;
-(function (mmk) {
-    var tiles;
-    (function (tiles) {
-        function eachFrame(onFrame) {
-            var callback;
-            callback = function () {
-                requestAnimationFrame(callback);
-                onFrame();
-            };
-            callback();
-        }
-        tiles.eachFrame = eachFrame;
     })(tiles = mmk.tiles || (mmk.tiles = {}));
 })(mmk || (mmk = {}));
 // Copyright 2017 MaulingMonkey
