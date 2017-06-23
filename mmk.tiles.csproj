@@ -33,8 +33,9 @@
   <ItemGroup>
     <TypeScriptCompile Include="src\eachFrame.ts" />
     <TypeScriptCompile Include="src\demo.ts" />
+    <TypeScriptCompile Include="src\DenseTileRenderer.ts" />
     <TypeScriptCompile Include="src\Rect.ts" />
-    <TypeScriptCompile Include="src\Sprite.ts" />
+    <TypeScriptCompile Include="src\SpriteRenderer.ts" />
   </ItemGroup>
   <ItemGroup>
     <None Include="web.Debug.config">

@@ -1,6 +1,36 @@
 declare namespace mmk.tiles {
 }
 declare namespace mmk.tiles {
+    type DenseMapCallback = (x: number, y: number) => SpriteRenderer[];
+    interface DenseTileRendererConfig {
+        getTile: DenseMapCallback;
+        tileSize: Size;
+    }
+    interface DenseTileRendererOrientation {
+        target: HTMLCanvasElement;
+        targetAnchor?: XY;
+        spriteAnchor?: XY;
+        focusTile?: XY;
+        rotation?: number;
+        roundPixel?: boolean;
+        zoom?: number;
+    }
+    interface DenseTileRendererArgs extends DenseTileRendererOrientation {
+    }
+    class DenseTileRenderer {
+        private config;
+        private canvas;
+        private canvasNext;
+        private canvasCurrentTiles;
+        private ensureCanvasSizeTiles(canvas, w, h);
+        constructor(config: DenseTileRendererConfig);
+        render(args: DenseTileRendererArgs): void;
+        pixelToTile(args: DenseTileRendererOrientation, pixel: XY): XY;
+        private bakeOrientation(orient);
+    }
+    function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer;
+}
+declare namespace mmk.tiles {
     function eachFrame(onFrame: () => void): void;
 }
 declare namespace mmk.tiles {
