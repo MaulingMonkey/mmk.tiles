@@ -2,6 +2,8 @@
 
 MaulingMonkey's typescript tile rendering/picking/management API.
 
+Live Demo: http://maulingmonkey.com/mmk.tiles/
+
 Currently supports:
 
 * Subdividing spritesheets from JSON data
