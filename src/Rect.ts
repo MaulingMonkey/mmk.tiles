@@ -16,4 +16,8 @@ namespace mmk.tiles {
 	export interface XY   { x: number; y: number; }
 	export interface Size { w: number; h: number; }
 	export interface Rect extends XY, Size {}
+
+	export function xy(x: number, y: number): XY { return {x,y}; }
+	export function size(w: number, h: number): Size { return {w,h}; }
+	export function rect(x: number, y: number, w: number, h: number): Rect { return {x,y,w,h}; }
 }

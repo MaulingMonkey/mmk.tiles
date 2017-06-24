@@ -74,7 +74,7 @@ namespace mmk.tiles {
 	function parseSize(s: string): Size {
 		const xy = parseXY(s);
 		if (!xy) return <Size><any>xy; // null, undefined
-		return {w:xy.x, h:xy.y};
+		return size(xy.x,xy.y);
 	}
 	
 	export class DenseTileRenderer {
@@ -110,14 +110,14 @@ namespace mmk.tiles {
 			this.getTile        = config.getTile;
 			this.canvas         = document.createElement("canvas");
 
-			this.debugName      = initFromAttr("data-debug-name",      s=>s,       undefined        );
-			this.tileSize       = initFromAttr("data-tile-size",       parseSize,  {w: 16,  h: 16 } );
-			this.tileFocus      = initFromAttr("data-tile-focus",      parseXY,    {x: 0,   y: 0}   );
-			this.tileAnchor     = initFromAttr("data-tile-anchor",     parseXY,    {x: 0.5, y: 0.5} );
-			this.viewportAnchor = initFromAttr("data-viewport-anchor", parseXY,    {x: 0.5, y: 0.5} );
-			this.rotation       = initFromAttr("data-rotation",        parseFloat, 0                );
-			this.roundPixel     = initFromAttr("data-round-to-pixel",  parseBool,  false            );
-			this.zoom           = initFromAttr("data-zoom",            parseFloat, 1                );
+			this.debugName      = initFromAttr("data-debug-name",      s=>s,       undefined      );
+			this.tileSize       = initFromAttr("data-tile-size",       parseSize,  size(16,  16 ) );
+			this.tileFocus      = initFromAttr("data-tile-focus",      parseXY,    xy  (0,   0  ) );
+			this.tileAnchor     = initFromAttr("data-tile-anchor",     parseXY,    xy  (0.5, 0.5) );
+			this.viewportAnchor = initFromAttr("data-viewport-anchor", parseXY,    xy  (0.5, 0.5) );
+			this.rotation       = initFromAttr("data-rotation",        parseFloat, 0              );
+			this.roundPixel     = initFromAttr("data-round-to-pixel",  parseBool,  false          );
+			this.zoom           = initFromAttr("data-zoom",            parseFloat, 1              );
 		}
 
 		render(): void {
@@ -128,10 +128,10 @@ namespace mmk.tiles {
 			const tileW = this.tileSize.w;
 			const tileH = this.tileSize.h;
 
-			const tl = pixelToTile(orient, {x: 0,            y: 0            });
-			const tr = pixelToTile(orient, {x: target.width, y: 0            });
-			const br = pixelToTile(orient, {x: target.width, y: target.height});
-			const bl = pixelToTile(orient, {x: 0           , y: target.height});
+			const tl = pixelToTile(orient, xy(0,            0            ));
+			const tr = pixelToTile(orient, xy(target.width, 0            ));
+			const br = pixelToTile(orient, xy(target.width, target.height));
+			const bl = pixelToTile(orient, xy(0           , target.height));
 
 			const minTileX = Math.round(Math.min(tl.x, tr.x, br.x, bl.x));
 			const minTileY = Math.round(Math.min(tl.y, tr.y, br.y, bl.y));

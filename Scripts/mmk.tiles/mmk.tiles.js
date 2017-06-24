@@ -298,7 +298,7 @@ var mmk;
             var xy = parseXY(s);
             if (!xy)
                 return xy; // null, undefined
-            return { w: xy.x, h: xy.y };
+            return tiles.size(xy.x, xy.y);
         }
         var DenseTileRenderer = (function () {
             function DenseTileRenderer(config) {
@@ -326,10 +326,10 @@ var mmk;
                 this.getTile = config.getTile;
                 this.canvas = document.createElement("canvas");
                 this.debugName = initFromAttr("data-debug-name", function (s) { return s; }, undefined);
-                this.tileSize = initFromAttr("data-tile-size", parseSize, { w: 16, h: 16 });
-                this.tileFocus = initFromAttr("data-tile-focus", parseXY, { x: 0, y: 0 });
-                this.tileAnchor = initFromAttr("data-tile-anchor", parseXY, { x: 0.5, y: 0.5 });
-                this.viewportAnchor = initFromAttr("data-viewport-anchor", parseXY, { x: 0.5, y: 0.5 });
+                this.tileSize = initFromAttr("data-tile-size", parseSize, tiles.size(16, 16));
+                this.tileFocus = initFromAttr("data-tile-focus", parseXY, tiles.xy(0, 0));
+                this.tileAnchor = initFromAttr("data-tile-anchor", parseXY, tiles.xy(0.5, 0.5));
+                this.viewportAnchor = initFromAttr("data-viewport-anchor", parseXY, tiles.xy(0.5, 0.5));
                 this.rotation = initFromAttr("data-rotation", parseFloat, 0);
                 this.roundPixel = initFromAttr("data-round-to-pixel", parseBool, false);
                 this.zoom = initFromAttr("data-zoom", parseFloat, 1);
@@ -341,10 +341,10 @@ var mmk;
                 var target = this.target;
                 var tileW = this.tileSize.w;
                 var tileH = this.tileSize.h;
-                var tl = pixelToTile(orient, { x: 0, y: 0 });
-                var tr = pixelToTile(orient, { x: target.width, y: 0 });
-                var br = pixelToTile(orient, { x: target.width, y: target.height });
-                var bl = pixelToTile(orient, { x: 0, y: target.height });
+                var tl = pixelToTile(orient, tiles.xy(0, 0));
+                var tr = pixelToTile(orient, tiles.xy(target.width, 0));
+                var br = pixelToTile(orient, tiles.xy(target.width, target.height));
+                var bl = pixelToTile(orient, tiles.xy(0, target.height));
                 var minTileX = Math.round(Math.min(tl.x, tr.x, br.x, bl.x));
                 var minTileY = Math.round(Math.min(tl.y, tr.y, br.y, bl.y));
                 var maxTileX = Math.round(Math.max(tl.x, tr.x, br.x, bl.x));
@@ -476,6 +476,18 @@ var mmk;
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+var mmk;
+(function (mmk) {
+    var tiles;
+    (function (tiles) {
+        function xy(x, y) { return { x: x, y: y }; }
+        tiles.xy = xy;
+        function size(w, h) { return { w: w, h: h }; }
+        tiles.size = size;
+        function rect(x, y, w, h) { return { x: x, y: y, w: w, h: h }; }
+        tiles.rect = rect;
+    })(tiles = mmk.tiles || (mmk.tiles = {}));
+})(mmk || (mmk = {}));
 // Copyright 2017 MaulingMonkey
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

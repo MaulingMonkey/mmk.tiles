@@ -58,6 +58,9 @@ declare namespace mmk.tiles {
     }
     interface Rect extends XY, Size {
     }
+    function xy(x: number, y: number): XY;
+    function size(w: number, h: number): Size;
+    function rect(x: number, y: number, w: number, h: number): Rect;
 }
 declare namespace mmk.tiles {
     interface SpriteRenderer {
