@@ -16,16 +16,12 @@ var mmk;
     var tiles;
     (function (tiles_1) {
         addEventListener("load", function () {
-            var demo = document.getElementById("mmk-tiles-demo");
-            if (!demo)
+            var target = document.getElementById("mmk-tiles-demo");
+            if (!target)
                 return;
-            console.assert(demo.tagName === "CANVAS");
-            var imgSrc = demo.getAttribute("data-mmk-tilemap");
+            console.assert(target.tagName === "CANVAS");
+            var imgSrc = target.getAttribute("data-tile-map");
             var tileMap = tiles_1.getTileset(imgSrc);
-            var w = demo.clientWidth = demo.width;
-            var h = demo.clientHeight = demo.height;
-            var tileW = 16;
-            var tileH = 16;
             var worldW = 100;
             var worldH = 50;
             var mousePixel = { x: 0, y: 0 };
@@ -48,39 +44,21 @@ var mmk;
                     tiles.push(tileMap["selectDot"]);
                 return tiles;
             }
-            var renderer = tiles_1.createDenseMapLayerRenderer({
-                tileSize: { w: 16, h: 16 },
-                getTile: getTile,
-            });
-            var orientation = {
-                target: demo,
-                // Top Left
-                //targetAnchor: { x: 0, y: 0 }, // Top left of viewport
-                //spriteAnchor: { x: 0, y: 0 }, // Top left of sprite
-                //focusTile:    { x: 0, y: 0 }, // 0,0 is top left sprite
-                // Center
-                targetAnchor: { x: 0.5, y: 0.5 },
-                spriteAnchor: { x: 0.5, y: 0.5 },
-                focusTile: { x: worldW / 2, y: worldH / 2 },
-                rotation: Math.cos(Date.now() / 1000) / 10,
-                roundPixel: false,
-            };
-            demo.addEventListener("mousemove", function (ev) {
-                mousePixel = { x: ev.offsetX, y: ev.offsetY };
-            });
+            var renderer = tiles_1.createDenseMapLayerRenderer({ target: target, getTile: getTile });
+            target.addEventListener("mousemove", function (ev) { mousePixel = { x: ev.offsetX, y: ev.offsetY }; });
             var imgData;
             tiles_1.eachFrame(function () {
                 var start = Date.now();
-                var mouseTile = renderer.pixelToTile(orientation, mousePixel);
+                var mouseTile = renderer.pixelToTile(mousePixel);
                 curX = Math.round(mouseTile.x);
                 curY = Math.round(mouseTile.y);
                 tiles_1.benchmark("clear demo", function () {
-                    var c = demo.getContext("2d");
+                    var c = target.getContext("2d");
                     c.setTransform(1, 0, 0, 1, 0, 0);
-                    c.clearRect(0, 0, demo.width, demo.height);
+                    c.clearRect(0, 0, target.width, target.height);
                 });
-                orientation.rotation = Math.cos(Date.now() / 1000) / 10;
-                renderer.render(orientation);
+                renderer.rotation = Math.cos(Date.now() / 1000) / 10;
+                renderer.render();
                 var end = Date.now();
                 tiles_1.benchmark("---------------------------", 0);
                 tiles_1.benchmark("Total", end - start);
@@ -301,18 +279,68 @@ var mmk;
             var y = (RVAdy - o.tileAnchorY) / o.tileH - 0.5 + o.focusY;
             return { x: x, y: y };
         }
+        function parseBool(s) {
+            if (s === undefined || s == null)
+                return s;
+            if (s.toLowerCase() === "true")
+                return true;
+            if (s.toLowerCase() === "false")
+                return false;
+            return undefined;
+        }
+        function parseXY(s) {
+            if (s === undefined || s == null)
+                return s;
+            var _a = s.split(',').map(parseFloat), x = _a[0], y = _a[1];
+            return { x: x, y: y };
+        }
+        function parseSize(s) {
+            var xy = parseXY(s);
+            if (!xy)
+                return xy; // null, undefined
+            return { w: xy.x, h: xy.y };
+        }
         var DenseTileRenderer = (function () {
             function DenseTileRenderer(config) {
-                this.config = config;
+                console.assert(!!config.target, "config.target required");
+                console.assert(!!config.getTile, "config.getTile required"); // FIXME: Allow DOM specified callback?
+                function initFromAttr(attribute, attributeParser, fallback) {
+                    var a = config.target.getAttribute(attribute);
+                    if (a === undefined || a === null)
+                        return fallback;
+                    var r;
+                    try {
+                        r = attributeParser(a);
+                    }
+                    catch (e) {
+                        console.error(config.target, "bad", attribute, "value:", e);
+                        return fallback;
+                    }
+                    if (r === undefined || r === null) {
+                        console.error(config.target, "bad", attribute, "value");
+                        return fallback;
+                    }
+                    return r;
+                }
+                this.target = config.target;
+                this.getTile = config.getTile;
                 this.canvas = document.createElement("canvas");
+                this.debugName = initFromAttr("data-debug-name", function (s) { return s; }, undefined);
+                this.tileSize = initFromAttr("data-tile-size", parseSize, { w: 16, h: 16 });
+                this.tileFocus = initFromAttr("data-tile-focus", parseXY, { x: 0, y: 0 });
+                this.tileAnchor = initFromAttr("data-tile-anchor", parseXY, { x: 0.5, y: 0.5 });
+                this.viewportAnchor = initFromAttr("data-viewport-anchor", parseXY, { x: 0.5, y: 0.5 });
+                this.rotation = initFromAttr("data-rotation", parseFloat, 0);
+                this.roundPixel = initFromAttr("data-round-to-pixel", parseBool, false);
+                this.zoom = initFromAttr("data-zoom", parseFloat, 1);
             }
-            DenseTileRenderer.prototype.ensureCanvasSizeTiles = function (canvas, w, h) { return ensureCanvasSizePixels(canvas, this.config.tileSize.w * w, this.config.tileSize.h * h); };
-            DenseTileRenderer.prototype.render = function (args) {
+            DenseTileRenderer.prototype.ensureCanvasSizeTiles = function (canvas, w, h) { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); };
+            DenseTileRenderer.prototype.render = function () {
                 var tStart = Date.now();
-                var orient = this.bakeOrientation(args);
-                var target = args.target;
-                var tileW = this.config.tileSize.w;
-                var tileH = this.config.tileSize.h;
+                var orient = this.bakeOrientation();
+                var target = this.target;
+                var tileW = this.tileSize.w;
+                var tileH = this.tileSize.h;
                 var tl = pixelToTile(orient, { x: 0, y: 0 });
                 var tr = pixelToTile(orient, { x: target.width, y: 0 });
                 var br = pixelToTile(orient, { x: target.width, y: target.height });
@@ -323,7 +351,7 @@ var mmk;
                 var maxTileY = Math.round(Math.max(tl.y, tr.y, br.y, bl.y));
                 var tilesWide = maxTileX - minTileX + 1;
                 var tilesTall = maxTileY - minTileY + 1;
-                var getTile = this.config.getTile;
+                var getTile = this.getTile;
                 var tStartRenderToCanvas = Date.now();
                 // v1: Brute force
                 {
@@ -348,35 +376,35 @@ var mmk;
                 var tStartRenderToTarget = Date.now();
                 // Draw to 'real' target
                 {
-                    var context = args.target.getContext("2d");
+                    var context = this.target.getContext("2d");
                     context.setTransform(orient.cos, -orient.sin, orient.sin, orient.cos, orient.viewportAnchorX, orient.viewportAnchorY);
                     context.drawImage(this.canvas, orient.tileAnchorX + (minTileX - orient.focusX) * tileW, orient.tileAnchorY + (minTileY - orient.focusY) * tileH, this.canvas.width, this.canvas.height);
                 }
                 var tEnd = Date.now();
-                var prefix = this.config.debugName === undefined ? "" : this.config.debugName + " ";
+                var prefix = this.debugName === undefined ? "" : this.debugName + " ";
                 tiles.benchmark(prefix + "precalc", tStartRenderToCanvas - tStart);
                 tiles.benchmark(prefix + "render to canvas", tStartRenderToTarget - tStartRenderToCanvas);
                 tiles.benchmark(prefix + "render to target", tEnd - tStartRenderToTarget);
                 tiles.benchmark(prefix + "update benchmarks", Date.now() - tEnd);
             };
-            DenseTileRenderer.prototype.pixelToTile = function (args, pixel) {
-                var baked = this.bakeOrientation(args);
+            DenseTileRenderer.prototype.pixelToTile = function (pixel) {
+                var baked = this.bakeOrientation();
                 return pixelToTile(baked, pixel);
             };
-            DenseTileRenderer.prototype.bakeOrientation = function (orient) {
-                var target = orient.target;
-                var rotation = !orient.rotation ? 0 : orient.rotation;
-                var roundPixel = orient.roundPixel === undefined || !!orient.roundPixel; // consider ignoring if rotation isn't a multiple of pi/2 (90deg)
-                var viewportAnchorX = target.width * orient.targetAnchor.x;
-                var viewportAnchorY = target.height * orient.targetAnchor.y;
+            DenseTileRenderer.prototype.bakeOrientation = function () {
+                var target = this.target;
+                var rotation = this.rotation;
+                var roundPixel = this.roundPixel; // consider ignoring if rotation isn't a multiple of pi/2 (90deg)
+                var viewportAnchorX = target.width * this.viewportAnchor.x;
+                var viewportAnchorY = target.height * this.viewportAnchor.y;
                 if (roundPixel) {
                     viewportAnchorX = Math.round(viewportAnchorX);
                     viewportAnchorY = Math.round(viewportAnchorY);
                 }
-                var tileW = this.config.tileSize.w;
-                var tileH = this.config.tileSize.h;
-                var tileAnchorX = tileW * orient.spriteAnchor.x;
-                var tileAnchorY = tileH * orient.spriteAnchor.y;
+                var tileW = this.tileSize.w;
+                var tileH = this.tileSize.h;
+                var tileAnchorX = tileW * this.tileAnchor.x;
+                var tileAnchorY = tileH * this.tileAnchor.y;
                 if (roundPixel) {
                     tileAnchorX = Math.round(tileAnchorX);
                     tileAnchorY = Math.round(tileAnchorY);
@@ -385,7 +413,7 @@ var mmk;
                 var sin = Math.sin(rotation);
                 var originX = 0;
                 var originY = 0;
-                return { cos: cos, sin: sin, viewportAnchorX: viewportAnchorX, viewportAnchorY: viewportAnchorY, tileAnchorX: tileAnchorX, tileAnchorY: tileAnchorY, tileW: tileW, tileH: tileH, focusX: orient.focusTile.x, focusY: orient.focusTile.y };
+                return { cos: cos, sin: sin, viewportAnchorX: viewportAnchorX, viewportAnchorY: viewportAnchorY, tileAnchorX: tileAnchorX, tileAnchorY: tileAnchorY, tileW: tileW, tileH: tileH, focusX: this.tileFocus.x, focusY: this.tileFocus.y };
             };
             return DenseTileRenderer;
         }());

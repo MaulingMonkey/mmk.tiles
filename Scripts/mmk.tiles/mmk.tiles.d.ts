@@ -20,29 +20,26 @@ declare namespace mmk.tiles {
 declare namespace mmk.tiles {
     type DenseMapCallback = (x: number, y: number) => SpriteRenderer[];
     interface DenseTileRendererConfig {
-        debugName?: string;
-        getTile: DenseMapCallback;
-        tileSize: Size;
-    }
-    interface DenseTileRendererOrientation {
         target: HTMLCanvasElement;
-        targetAnchor?: XY;
-        spriteAnchor?: XY;
-        focusTile?: XY;
-        rotation?: number;
-        roundPixel?: boolean;
-        zoom?: number;
-    }
-    interface DenseTileRendererArgs extends DenseTileRendererOrientation {
+        getTile: DenseMapCallback;
     }
     class DenseTileRenderer {
-        private config;
+        target: HTMLCanvasElement;
+        getTile: DenseMapCallback;
         private canvas;
+        debugName: string;
+        tileSize: Size;
+        tileFocus: XY;
+        tileAnchor: XY;
+        viewportAnchor: XY;
+        rotation: number;
+        roundPixel: boolean;
+        zoom: number;
         private ensureCanvasSizeTiles(canvas, w, h);
         constructor(config: DenseTileRendererConfig);
-        render(args: DenseTileRendererArgs): void;
-        pixelToTile(args: DenseTileRendererOrientation, pixel: XY): XY;
-        private bakeOrientation(orient);
+        render(): void;
+        pixelToTile(pixel: XY): XY;
+        private bakeOrientation();
     }
     function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer;
 }
