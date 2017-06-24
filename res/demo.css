@@ -1,3 +1,49 @@
 ﻿body {
-	font-family: 'Lucida Console', monospace;
+	font-family:    'Lucida Console', monospace;
+	box-sizing:     border-box;
+	display:        flex;
+	flex-direction: column;
+	margin:         0;
+	padding:        0;
+	width:          100vw;
+	height:         100vh;
+	overflow:       hidden;
+}
+
+
+
+h1 {
+	text-align: center;
+	flex:       0 0 auto;
+	margin:     0;
+	padding:    0.5em;
+}
+
+#mmk-tiles-content {
+	flex:       1 1 auto;
+	overflow:   hidden;
+	height:     100%;
+}
+
+#mmk-tiles-debug-profiling {
+	flex:       0 1 auto;
+}
+
+
+
+#mmk-tiles-demo {
+	width:      100%;
+	height:     100%;
+}
+
+#mmk-tiles-debug-profiling table {
+	border-collapse: collapse;
+}
+
+#mmk-tiles-debug-profiling th {
+	border-bottom: 1px solid #000;
+}
+
+#mmk-tiles-debug-profiling table tbody tr td:last-child {
+	text-align: right;
 }

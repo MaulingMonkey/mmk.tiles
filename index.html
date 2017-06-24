@@ -4,12 +4,11 @@
 	<meta charset="utf-8" />
 	<link rel="stylesheet" href="res/demo.css" type="text/css">
 	<script defer src="Scripts/mmk.tiles/mmk.tiles.js"></script>
+	<script defer>addEventListener("load", function(){
+		mmk.tiles.autoResizeCanvas("mmk-tiles-demo");
+	});</script>
 </head><body>
 	<h1>mmk.tiles &mdash; Demo</h1>
-	<canvas
-		id="mmk-tiles-demo"
-		width="1600" height="800"
-		data-mmk-tilemap="res/tiles.png"
-		></canvas>
-	<div id="mmk-tiles-debug-profiling"></div>
+	<div id="mmk-tiles-content"><canvas id="mmk-tiles-demo" data-mmk-tilemap="res/tiles.png"></canvas></div>
+	<center id="mmk-tiles-debug-profiling"></center>
 </body></html>

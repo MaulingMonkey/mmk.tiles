@@ -21,4 +21,14 @@ namespace mmk.tiles {
 		};
 		callback();
 	}
+
+	export function eachFrameWhile(onFrame: ()=>boolean) {
+		let callback : ()=>void;
+		let t : number;
+		callback = function(){
+			t = requestAnimationFrame(callback);
+			if (!onFrame()) cancelAnimationFrame(t);
+		};
+		callback();
+	}
 }

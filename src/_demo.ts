@@ -26,8 +26,8 @@ namespace mmk.tiles {
 		const tileW = 16;
 		const tileH = 16;
 
-		const worldH = h/16;
-		const worldW = w/16;
+		const worldW = 100;
+		const worldH = 50;
 
 		let mousePixel : XY = { x: 0, y: 0 };
 		let curX = 3;
