@@ -14,96 +14,6 @@
 var mmk;
 (function (mmk) {
     var tiles;
-    (function (tiles_1) {
-        addEventListener("load", function () {
-            var demo = document.getElementById("mmk-tiles-demo");
-            if (!demo)
-                return;
-            console.assert(demo.tagName === "CANVAS");
-            var imgSrc = demo.getAttribute("data-mmk-tilemap");
-            var tileMap = tiles_1.getTileset(imgSrc);
-            var w = demo.clientWidth = demo.width;
-            var h = demo.clientHeight = demo.height;
-            var tileW = 16;
-            var tileH = 16;
-            var worldH = h / 16;
-            var worldW = w / 16;
-            var mousePixel = { x: 0, y: 0 };
-            var curX = 3;
-            var curY = 3;
-            function getTile(x, y) {
-                var tiles = [];
-                if ((0 <= x) && (x < worldW) && (0 <= y) && (y < worldH)) {
-                    var top_1 = y === 0;
-                    var bot = y === worldH - 1;
-                    var left = x === 0;
-                    var right = x === worldW - 1;
-                    var wall = bot || top_1 || left || right;
-                    var bottomWall = wall && (bot || (top_1 && !(left || right)));
-                    tiles.push(tileMap[bottomWall ? "wallBottom" : wall ? "wallTop" : "floorDot"]);
-                }
-                if (x === curX && y === curY)
-                    tiles.push(tileMap["selectTile"]);
-                if (x === 5 && y === 5)
-                    tiles.push(tileMap["selectDot"]);
-                return tiles;
-            }
-            var renderer = tiles_1.createDenseMapLayerRenderer({
-                tileSize: { w: 16, h: 16 },
-                getTile: getTile,
-            });
-            var orientation = {
-                target: demo,
-                // Top Left
-                //targetAnchor: { x: 0, y: 0 }, // Top left of viewport
-                //spriteAnchor: { x: 0, y: 0 }, // Top left of sprite
-                //focusTile:    { x: 0, y: 0 }, // 0,0 is top left sprite
-                // Center
-                targetAnchor: { x: 0.5, y: 0.5 },
-                spriteAnchor: { x: 0.5, y: 0.5 },
-                focusTile: { x: worldW / 2, y: worldH / 2 },
-                rotation: Math.cos(Date.now() / 1000) / 10,
-                roundPixel: false,
-            };
-            demo.addEventListener("mousemove", function (ev) {
-                mousePixel = { x: ev.offsetX, y: ev.offsetY };
-            });
-            var imgData;
-            tiles_1.eachFrame(function () {
-                var start = Date.now();
-                var mouseTile = renderer.pixelToTile(orientation, mousePixel);
-                curX = Math.round(mouseTile.x);
-                curY = Math.round(mouseTile.y);
-                tiles_1.benchmark("clear demo", function () {
-                    var c = demo.getContext("2d");
-                    c.setTransform(1, 0, 0, 1, 0, 0);
-                    c.clearRect(0, 0, demo.width, demo.height);
-                });
-                orientation.rotation = Math.cos(Date.now() / 1000) / 10;
-                renderer.render(orientation);
-                var end = Date.now();
-                tiles_1.benchmark("---------------------------", 0);
-                tiles_1.benchmark("Total", end - start);
-            });
-        });
-    })(tiles = mmk.tiles || (mmk.tiles = {}));
-})(mmk || (mmk = {}));
-// Copyright 2017 MaulingMonkey
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-var mmk;
-(function (mmk) {
-    var tiles;
     (function (tiles) {
         var times;
         function benchmark(desc, time) {
@@ -202,20 +112,141 @@ var mmk;
             var tryUpdate = function () {
                 if (!imgReady || !jsonReady)
                     return;
-                var r = createTileset(img, xhrJson.response);
+                var response = xhrJson.response;
+                if (!(response instanceof Object))
+                    response = JSON.parse(response);
+                var r = createTileset(img, response);
                 Object.keys(r).forEach(function (key) { return tileset[key] = r[key]; });
                 tryUpdate = function () { }; // done
             };
             img.addEventListener("load", function () { imgReady = true; tryUpdate(); });
             img.src = imgUrl;
             imgReady = isLoaded(img);
+            xhrJson.open("GET", jsonUrl, true);
             xhrJson.responseType = "json";
             xhrJson.addEventListener("load", function () { jsonReady = true; tryUpdate(); });
-            xhrJson.open("GET", jsonUrl, true);
             xhrJson.send();
             return tileset;
         }
         tiles.getTileset = getTileset;
+    })(tiles = mmk.tiles || (mmk.tiles = {}));
+})(mmk || (mmk = {}));
+// Copyright 2017 MaulingMonkey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+var mmk;
+(function (mmk) {
+    var tiles;
+    (function (tiles) {
+        function eachFrame(onFrame) {
+            var callback;
+            callback = function () {
+                requestAnimationFrame(callback);
+                onFrame();
+            };
+            callback();
+        }
+        tiles.eachFrame = eachFrame;
+    })(tiles = mmk.tiles || (mmk.tiles = {}));
+})(mmk || (mmk = {}));
+// Copyright 2017 MaulingMonkey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+var mmk;
+(function (mmk) {
+    var tiles;
+    (function (tiles_1) {
+        addEventListener("load", function () {
+            var demo = document.getElementById("mmk-tiles-demo");
+            if (!demo)
+                return;
+            console.assert(demo.tagName === "CANVAS");
+            var imgSrc = demo.getAttribute("data-mmk-tilemap");
+            var tileMap = tiles_1.getTileset(imgSrc);
+            var w = demo.clientWidth = demo.width;
+            var h = demo.clientHeight = demo.height;
+            var tileW = 16;
+            var tileH = 16;
+            var worldH = h / 16;
+            var worldW = w / 16;
+            var mousePixel = { x: 0, y: 0 };
+            var curX = 3;
+            var curY = 3;
+            function getTile(x, y) {
+                var tiles = [];
+                if ((0 <= x) && (x < worldW) && (0 <= y) && (y < worldH)) {
+                    var top_1 = y === 0;
+                    var bot = y === worldH - 1;
+                    var left = x === 0;
+                    var right = x === worldW - 1;
+                    var wall = bot || top_1 || left || right;
+                    var bottomWall = wall && (bot || (top_1 && !(left || right)));
+                    tiles.push(tileMap[bottomWall ? "wallBottom" : wall ? "wallTop" : "floorDot"]);
+                }
+                if (x === curX && y === curY)
+                    tiles.push(tileMap["selectTile"]);
+                if (x === 5 && y === 5)
+                    tiles.push(tileMap["selectDot"]);
+                return tiles;
+            }
+            var renderer = tiles_1.createDenseMapLayerRenderer({
+                tileSize: { w: 16, h: 16 },
+                getTile: getTile,
+            });
+            var orientation = {
+                target: demo,
+                // Top Left
+                //targetAnchor: { x: 0, y: 0 }, // Top left of viewport
+                //spriteAnchor: { x: 0, y: 0 }, // Top left of sprite
+                //focusTile:    { x: 0, y: 0 }, // 0,0 is top left sprite
+                // Center
+                targetAnchor: { x: 0.5, y: 0.5 },
+                spriteAnchor: { x: 0.5, y: 0.5 },
+                focusTile: { x: worldW / 2, y: worldH / 2 },
+                rotation: Math.cos(Date.now() / 1000) / 10,
+                roundPixel: false,
+            };
+            demo.addEventListener("mousemove", function (ev) {
+                mousePixel = { x: ev.offsetX, y: ev.offsetY };
+            });
+            var imgData;
+            tiles_1.eachFrame(function () {
+                var start = Date.now();
+                var mouseTile = renderer.pixelToTile(orientation, mousePixel);
+                curX = Math.round(mouseTile.x);
+                curY = Math.round(mouseTile.y);
+                tiles_1.benchmark("clear demo", function () {
+                    var c = demo.getContext("2d");
+                    c.setTransform(1, 0, 0, 1, 0, 0);
+                    c.clearRect(0, 0, demo.width, demo.height);
+                });
+                orientation.rotation = Math.cos(Date.now() / 1000) / 10;
+                renderer.render(orientation);
+                var end = Date.now();
+                tiles_1.benchmark("---------------------------", 0);
+                tiles_1.benchmark("Total", end - start);
+            });
+        });
     })(tiles = mmk.tiles || (mmk.tiles = {}));
 })(mmk || (mmk = {}));
 // Copyright 2017 MaulingMonkey
@@ -353,34 +384,6 @@ var mmk;
             return new DenseTileRenderer(config);
         }
         tiles.createDenseMapLayerRenderer = createDenseMapLayerRenderer;
-    })(tiles = mmk.tiles || (mmk.tiles = {}));
-})(mmk || (mmk = {}));
-// Copyright 2017 MaulingMonkey
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-var mmk;
-(function (mmk) {
-    var tiles;
-    (function (tiles) {
-        function eachFrame(onFrame) {
-            var callback;
-            callback = function () {
-                requestAnimationFrame(callback);
-                onFrame();
-            };
-            callback();
-        }
-        tiles.eachFrame = eachFrame;
     })(tiles = mmk.tiles || (mmk.tiles = {}));
 })(mmk || (mmk = {}));
 // Copyright 2017 MaulingMonkey

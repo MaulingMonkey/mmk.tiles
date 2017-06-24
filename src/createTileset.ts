@@ -38,7 +38,9 @@ namespace mmk.tiles {
 		let jsonReady = false;
 		let tryUpdate = function() {
 			if (!imgReady || !jsonReady) return;
-			let r = createTileset(img, xhrJson.response as TilesetJson);
+			let response = xhrJson.response;
+			if (!(response instanceof Object)) response = JSON.parse(response);
+			let r = createTileset(img, response as TilesetJson);
 			Object.keys(r).forEach(key => tileset[key] = r[key]);
 			tryUpdate = function() {}; // done
 		}
@@ -47,9 +49,9 @@ namespace mmk.tiles {
 		img.src = imgUrl;
 		imgReady = isLoaded(img);
 
+		xhrJson.open("GET", jsonUrl, true);
 		xhrJson.responseType = "json";
 		xhrJson.addEventListener("load", function(){ jsonReady = true; tryUpdate(); });
-		xhrJson.open("GET", jsonUrl, true);
 		xhrJson.send();
 
 		return tileset;
