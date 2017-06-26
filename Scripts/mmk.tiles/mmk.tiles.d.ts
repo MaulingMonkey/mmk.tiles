@@ -47,7 +47,6 @@ declare namespace mmk.tiles {
         render(): void;
         /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
         pixelToTileCenter(pixel: XY): XY;
-        private bakeOrientation();
     }
     function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer;
 }

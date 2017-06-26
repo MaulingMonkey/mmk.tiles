@@ -452,30 +452,6 @@ var mmk;
             };
             /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
             DenseTileRenderer.prototype.pixelToTileCenter = function (pixel) { return this.domToTileCenter.xformPoint(pixel); };
-            DenseTileRenderer.prototype.bakeOrientation = function () {
-                var target = this.target;
-                var rotation = this.rotation;
-                var roundPixel = this.roundPixel; // consider ignoring if rotation isn't a multiple of pi/2 (90deg)
-                var viewportAnchorX = target.width * this.viewportAnchor.x;
-                var viewportAnchorY = target.height * this.viewportAnchor.y;
-                if (roundPixel) {
-                    viewportAnchorX = Math.round(viewportAnchorX);
-                    viewportAnchorY = Math.round(viewportAnchorY);
-                }
-                var tileW = this.tileSize.w;
-                var tileH = this.tileSize.h;
-                var tileAnchorX = tileW * this.tileAnchor.x;
-                var tileAnchorY = tileH * this.tileAnchor.y;
-                if (roundPixel) {
-                    tileAnchorX = Math.round(tileAnchorX);
-                    tileAnchorY = Math.round(tileAnchorY);
-                }
-                var cos = Math.cos(rotation);
-                var sin = Math.sin(rotation);
-                var originX = 0;
-                var originY = 0;
-                return { cos: cos, sin: sin, viewportAnchorX: viewportAnchorX, viewportAnchorY: viewportAnchorY, tileAnchorX: tileAnchorX, tileAnchorY: tileAnchorY, tileW: tileW, tileH: tileH, focusX: this.tileFocus.x, focusY: this.tileFocus.y };
-            };
             return DenseTileRenderer;
         }());
         tiles.DenseTileRenderer = DenseTileRenderer;

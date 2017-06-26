@@ -20,19 +20,6 @@ namespace mmk.tiles {
 		getTile:       DenseMapCallback;
 	}
 
-	interface DenseTileRendererBakedOrientation {
-		sin:             number;
-		cos:             number;
-		viewportAnchorX: number;
-		viewportAnchorY: number;
-		tileAnchorX:     number;
-		tileAnchorY:     number;
-		tileW:           number;
-		tileH:           number;
-		focusX:          number;
-		focusY:          number;
-	}
-
 	function ensureCanvasSizePixels(canvas: HTMLCanvasElement, w: number, h: number): boolean {
 		let dirty = false;
 		if (canvas.width  < w) { canvas.width  = w; dirty = true; }
@@ -226,34 +213,6 @@ namespace mmk.tiles {
 
 		/** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
 		pixelToTileCenter(pixel: XY): XY { return this.domToTileCenter.xformPoint(pixel); }
-
-		private bakeOrientation(): DenseTileRendererBakedOrientation {
-			const target             = this.target;
-			const rotation           = this.rotation;
-			const roundPixel         = this.roundPixel; // consider ignoring if rotation isn't a multiple of pi/2 (90deg)
-			let viewportAnchorX = target.width  * this.viewportAnchor.x;
-			let viewportAnchorY = target.height * this.viewportAnchor.y;
-			if (roundPixel) {
-				viewportAnchorX = Math.round(viewportAnchorX);
-				viewportAnchorY = Math.round(viewportAnchorY);
-			}
-
-			const tileW = this.tileSize.w;
-			const tileH = this.tileSize.h;
-			let tileAnchorX = tileW * this.tileAnchor.x;
-			let tileAnchorY = tileH * this.tileAnchor.y;
-			if (roundPixel) {
-				tileAnchorX = Math.round(tileAnchorX);
-				tileAnchorY = Math.round(tileAnchorY);
-			}
-
-			const cos = Math.cos(rotation);
-			const sin = Math.sin(rotation);
-			const originX = 0;
-			const originY = 0;
-
-			return { cos, sin, viewportAnchorX, viewportAnchorY, tileAnchorX, tileAnchorY, tileW, tileH, focusX: this.tileFocus.x, focusY: this.tileFocus.y };
-		}
 	}
 
 	export function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer {
