@@ -69,6 +69,8 @@ namespace mmk.tiles {
 			let tStart = Date.now();
 
 			const target = this.target;
+			if (target.width <= 0 || target.height <= 0) return; // Cannot render
+
 			const tileW = this.tileSize.w;
 			const tileH = this.tileSize.h;
 
@@ -136,7 +138,10 @@ namespace mmk.tiles {
 		}
 
 		/** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
-		pixelToTileCenter(pixel: XY): XY { return this.domToTileCenter.xformPoint(pixel); }
+		pixelToTileCenter(pixel: XY): XY {
+			if ((this.target.clientWidth <= 0) || (this.target.clientHeight <= 0)) return {x: this.tileFocus.x, y: this.tileFocus.y};
+			return this.domToTileCenter.xformPoint(pixel);
+		}
 
 		private get actuallyRoundPixel(): boolean { return this.roundPixel; } // consider ignoring if rotation isn't a multiple of pi/2 (90deg)?
 		private ensureCanvasSizeTiles(canvas: HTMLCanvasElement, w: number, h: number): boolean { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); }
@@ -181,7 +186,7 @@ namespace mmk.tiles {
 		private get domToTileCenter()    { return Matrix2x3.mul(this.domToRender, this.renderToTileCenter); }
 
 		private get domToRender() {
-			const renderSize = size(this.target.width, this.target.height)
+			const renderSize = size(this.target.width, this.target.height);
 			const elementSize = rect(0,0,this.target.clientWidth, this.target.clientHeight);
 			const canvasCoords = roundRect(fitSizeWithinRect(renderSize, elementSize));
 

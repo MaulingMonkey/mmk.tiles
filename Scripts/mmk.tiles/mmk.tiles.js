@@ -295,6 +295,8 @@ var mmk;
             DenseTileRenderer.prototype.render = function () {
                 var tStart = Date.now();
                 var target = this.target;
+                if (target.width <= 0 || target.height <= 0)
+                    return; // Cannot render
                 var tileW = this.tileSize.w;
                 var tileH = this.tileSize.h;
                 var renderToTileCenter = this.renderToTileCenter;
@@ -350,7 +352,11 @@ var mmk;
                 tiles.benchmark(prefix + "update benchmarks", Date.now() - tEnd);
             };
             /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
-            DenseTileRenderer.prototype.pixelToTileCenter = function (pixel) { return this.domToTileCenter.xformPoint(pixel); };
+            DenseTileRenderer.prototype.pixelToTileCenter = function (pixel) {
+                if ((this.target.clientWidth <= 0) || (this.target.clientHeight <= 0))
+                    return { x: this.tileFocus.x, y: this.tileFocus.y };
+                return this.domToTileCenter.xformPoint(pixel);
+            };
             Object.defineProperty(DenseTileRenderer.prototype, "actuallyRoundPixel", {
                 get: function () { return this.roundPixel; } // consider ignoring if rotation isn't a multiple of pi/2 (90deg)?
                 ,
