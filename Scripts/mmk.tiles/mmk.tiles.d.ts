@@ -18,6 +18,7 @@ declare namespace mmk.tiles {
     };
 }
 declare namespace mmk.tiles {
+    function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer;
     type DenseMapCallback = (x: number, y: number) => SpriteRenderer[];
     interface DenseTileRendererConfig {
         target: HTMLCanvasElement;
@@ -35,20 +36,19 @@ declare namespace mmk.tiles {
         rotation: number;
         roundPixel: boolean;
         zoom: number;
+        constructor(config: DenseTileRendererConfig);
+        render(): void;
+        /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
+        pixelToTileCenter(pixel: XY): XY;
         private actuallyRoundPixel;
+        private ensureCanvasSizeTiles(canvas, w, h);
         private viewportAnchorPixel;
         private tileAnchorPixel;
         private tileEdgeToRender;
         private renderToTileCenter;
         private domToTileCenter;
         private domToRender;
-        private ensureCanvasSizeTiles(canvas, w, h);
-        constructor(config: DenseTileRendererConfig);
-        render(): void;
-        /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
-        pixelToTileCenter(pixel: XY): XY;
     }
-    function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer;
 }
 declare namespace mmk.tiles {
     function eachFrame(onFrame: () => void): void;

@@ -13,37 +13,15 @@
 // limitations under the License.
 
 namespace mmk.tiles {
+	export function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer {
+		return new DenseTileRenderer(config);
+	}
+
 	export type DenseMapCallback  = (x: number, y: number) => SpriteRenderer[];
 
 	export interface DenseTileRendererConfig {
 		target:        HTMLCanvasElement;
 		getTile:       DenseMapCallback;
-	}
-
-	function ensureCanvasSizePixels(canvas: HTMLCanvasElement, w: number, h: number): boolean {
-		let dirty = false;
-		if (canvas.width  < w) { canvas.width  = w; dirty = true; }
-		if (canvas.height < h) { canvas.height = h; dirty = true; }
-		return dirty;
-	}
-
-	function parseBool(s: string): boolean {
-		if (s === undefined || s == null) return <any>s;
-		if (s.toLowerCase() === "true" ) return true;
-		if (s.toLowerCase() === "false") return false;
-		return undefined;
-	}
-
-	function parseXY(s: string): XY {
-		if (s === undefined || s == null) return <any>s;
-		const [x,y] = s.split(',').map(parseFloat);
-		return {x,y};
-	}
-
-	function parseSize(s: string): Size {
-		const xy = parseXY(s);
-		if (!xy) return <Size><any>xy; // null, undefined
-		return size(xy.x,xy.y);
 	}
 	
 	export class DenseTileRenderer {
@@ -59,60 +37,6 @@ namespace mmk.tiles {
 		rotation:       number;            // Radians to rotate the viewport right/clockwise around the origin of the viewport.
 		roundPixel:     boolean;           // Should rendering snap to the nearest full pixel.  Pixel perfect rendering vs non-smooth scrolling.
 		zoom:           number;            // Unused/unimplemented - should be used to scale the size of visible tiles. 1 = default zoom, 2 = double size, 0.5 = half size, etc.
-
-		private get actuallyRoundPixel(): boolean { return this.roundPixel; } // consider ignoring if rotation isn't a multiple of pi/2 (90deg)?
-
-		private get viewportAnchorPixel(): XY {
-			let x = this.target.width  * this.viewportAnchor.x;
-			let y = this.target.height * this.viewportAnchor.y;
-			if (this.actuallyRoundPixel) {
-				x = Math.round(x);
-				y = Math.round(y);
-			}
-			return {x,y};
-		}
-
-		private get tileAnchorPixel(): XY {
-			let x = this.tileSize.w * this.tileAnchor.x;
-			let y = this.tileSize.h * this.tileAnchor.y;
-			if (this.actuallyRoundPixel) {
-				x = Math.round(x);
-				y = Math.round(y);
-			}
-			return {x,y};
-		}
-
-
-
-		private get tileEdgeToRender() {
-			const viewportAnchorPixel = this.viewportAnchorPixel;
-			const tileAnchorPixel = this.tileAnchorPixel;
-			return Matrix2x3
-				.translate(-this.tileFocus.x, -this.tileFocus.y)             // -> relative to the center   of tile 0,0  in tiles
-				.scale(this.tileSize.w*this.zoom, this.tileSize.h*this.zoom) // -> relative to the top left of tileFocus in tiles
-				.translate(tileAnchorPixel.x, tileAnchorPixel.y)             // -> relative to the top left of tileFocus in pixels
-				.rotate(-this.rotation)                                      // -> relative to the   rotated frame centered on the viewport anchor
-				.translate(viewportAnchorPixel.x, viewportAnchorPixel.y)     // -> relative to the unrotated frame centered on the viewport anchor
-				;
-		}
-
-		private get renderToTileCenter() { return this.tileEdgeToRender.inverse().translate(-0.5, -0.5); }
-		private get domToTileCenter()    { return Matrix2x3.mul(this.domToRender, this.renderToTileCenter); }
-
-		private get domToRender() {
-			const renderSize = size(this.target.width, this.target.height)
-			const elementSize = rect(0,0,this.target.clientWidth, this.target.clientHeight);
-			const canvasCoords = roundRect(fitSizeWithinRect(renderSize, elementSize));
-
-			const scaleX = renderSize.w/elementSize.w;
-			const scaleY = renderSize.h/elementSize.h;
-
-			return Matrix2x3.identity
-				.scale(scaleX, scaleY)
-				.translate(-canvasCoords.x, -canvasCoords.y)
-		}
-
-		private ensureCanvasSizeTiles(canvas: HTMLCanvasElement, w: number, h: number): boolean { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); }
 
 		constructor(config: DenseTileRendererConfig) {
 			console.assert(!!config.target,  "config.target required");
@@ -213,9 +137,86 @@ namespace mmk.tiles {
 
 		/** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
 		pixelToTileCenter(pixel: XY): XY { return this.domToTileCenter.xformPoint(pixel); }
+
+		private get actuallyRoundPixel(): boolean { return this.roundPixel; } // consider ignoring if rotation isn't a multiple of pi/2 (90deg)?
+		private ensureCanvasSizeTiles(canvas: HTMLCanvasElement, w: number, h: number): boolean { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); }
+
+
+
+		// Layout
+
+		private get viewportAnchorPixel(): XY {
+			let x = this.target.width  * this.viewportAnchor.x;
+			let y = this.target.height * this.viewportAnchor.y;
+			if (this.actuallyRoundPixel) {
+				x = Math.round(x);
+				y = Math.round(y);
+			}
+			return {x,y};
+		}
+
+		private get tileAnchorPixel(): XY {
+			let x = this.tileSize.w * this.tileAnchor.x;
+			let y = this.tileSize.h * this.tileAnchor.y;
+			if (this.actuallyRoundPixel) {
+				x = Math.round(x);
+				y = Math.round(y);
+			}
+			return {x,y};
+		}
+
+		private get tileEdgeToRender() {
+			const viewportAnchorPixel = this.viewportAnchorPixel;
+			const tileAnchorPixel = this.tileAnchorPixel;
+			return Matrix2x3
+				.translate(-this.tileFocus.x, -this.tileFocus.y)             // -> relative to the center   of tile 0,0  in tiles
+				.scale(this.tileSize.w*this.zoom, this.tileSize.h*this.zoom) // -> relative to the top left of tileFocus in tiles
+				.translate(tileAnchorPixel.x, tileAnchorPixel.y)             // -> relative to the top left of tileFocus in pixels
+				.rotate(-this.rotation)                                      // -> relative to the   rotated frame centered on the viewport anchor
+				.translate(viewportAnchorPixel.x, viewportAnchorPixel.y)     // -> relative to the unrotated frame centered on the viewport anchor
+				;
+		}
+
+		private get renderToTileCenter() { return this.tileEdgeToRender.inverse().translate(-0.5, -0.5); }
+		private get domToTileCenter()    { return Matrix2x3.mul(this.domToRender, this.renderToTileCenter); }
+
+		private get domToRender() {
+			const renderSize = size(this.target.width, this.target.height)
+			const elementSize = rect(0,0,this.target.clientWidth, this.target.clientHeight);
+			const canvasCoords = roundRect(fitSizeWithinRect(renderSize, elementSize));
+
+			const scaleX = renderSize.w/elementSize.w;
+			const scaleY = renderSize.h/elementSize.h;
+
+			return Matrix2x3.identity
+				.scale(scaleX, scaleY)
+				.translate(-canvasCoords.x, -canvasCoords.y)
+		}
 	}
 
-	export function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer {
-		return new DenseTileRenderer(config);
+	function ensureCanvasSizePixels(canvas: HTMLCanvasElement, w: number, h: number): boolean {
+		let dirty = false;
+		if (canvas.width  < w) { canvas.width  = w; dirty = true; }
+		if (canvas.height < h) { canvas.height = h; dirty = true; }
+		return dirty;
+	}
+
+	function parseBool(s: string): boolean {
+		if (s === undefined || s == null) return <any>s;
+		if (s.toLowerCase() === "true" ) return true;
+		if (s.toLowerCase() === "false") return false;
+		return undefined;
+	}
+
+	function parseXY(s: string): XY {
+		if (s === undefined || s == null) return <any>s;
+		const [x,y] = s.split(',').map(parseFloat);
+		return {x,y};
+	}
+
+	function parseSize(s: string): Size {
+		const xy = parseXY(s);
+		if (!xy) return <Size><any>xy; // null, undefined
+		return size(xy.x,xy.y);
 	}
 }

@@ -254,39 +254,10 @@ var mmk;
 (function (mmk) {
     var tiles;
     (function (tiles) {
-        function ensureCanvasSizePixels(canvas, w, h) {
-            var dirty = false;
-            if (canvas.width < w) {
-                canvas.width = w;
-                dirty = true;
-            }
-            if (canvas.height < h) {
-                canvas.height = h;
-                dirty = true;
-            }
-            return dirty;
+        function createDenseMapLayerRenderer(config) {
+            return new DenseTileRenderer(config);
         }
-        function parseBool(s) {
-            if (s === undefined || s == null)
-                return s;
-            if (s.toLowerCase() === "true")
-                return true;
-            if (s.toLowerCase() === "false")
-                return false;
-            return undefined;
-        }
-        function parseXY(s) {
-            if (s === undefined || s == null)
-                return s;
-            var _a = s.split(',').map(parseFloat), x = _a[0], y = _a[1];
-            return { x: x, y: y };
-        }
-        function parseSize(s) {
-            var xy = parseXY(s);
-            if (!xy)
-                return xy; // null, undefined
-            return tiles.size(xy.x, xy.y);
-        }
+        tiles.createDenseMapLayerRenderer = createDenseMapLayerRenderer;
         var DenseTileRenderer = (function () {
             function DenseTileRenderer(config) {
                 console.assert(!!config.target, "config.target required");
@@ -321,13 +292,74 @@ var mmk;
                 this.roundPixel = initFromAttr("data-round-to-pixel", parseBool, false);
                 this.zoom = initFromAttr("data-zoom", parseFloat, 1);
             }
+            DenseTileRenderer.prototype.render = function () {
+                var tStart = Date.now();
+                var target = this.target;
+                var tileW = this.tileSize.w;
+                var tileH = this.tileSize.h;
+                var renderToTileCenter = this.renderToTileCenter;
+                var tl = renderToTileCenter.xformPoint(tiles.xy(0, 0));
+                var tr = renderToTileCenter.xformPoint(tiles.xy(target.width, 0));
+                var br = renderToTileCenter.xformPoint(tiles.xy(target.width, target.height));
+                var bl = renderToTileCenter.xformPoint(tiles.xy(0, target.height));
+                var minTileX = Math.round(Math.min(tl.x, tr.x, br.x, bl.x));
+                var minTileY = Math.round(Math.min(tl.y, tr.y, br.y, bl.y));
+                var maxTileX = Math.round(Math.max(tl.x, tr.x, br.x, bl.x));
+                var maxTileY = Math.round(Math.max(tl.y, tr.y, br.y, bl.y));
+                var tilesWide = maxTileX - minTileX + 1;
+                var tilesTall = maxTileY - minTileY + 1;
+                var getTile = this.getTile;
+                var tStartRenderToCanvas = Date.now();
+                // v1: Brute force
+                {
+                    var canvas = this.canvas;
+                    this.ensureCanvasSizeTiles(canvas, maxTileX - minTileX + 1, maxTileY - minTileY + 1);
+                    var context = canvas.getContext("2d");
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    for (var tileDy = 0; tileDy < tilesTall; ++tileDy)
+                        for (var tileDx = 0; tileDx < tilesWide; ++tileDx) {
+                            var tileX = tileDx + minTileX;
+                            var tileY = tileDy + minTileY;
+                            var tilePixelX = tileDx * tileW;
+                            var tilePixelY = tileDy * tileH;
+                            var sprites = getTile(tileX, tileY);
+                            for (var i = 0; i < sprites.length; ++i) {
+                                var sprite = sprites[i];
+                                if (sprite !== undefined)
+                                    sprite.drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
+                            }
+                        }
+                }
+                var tStartRenderToTarget = Date.now();
+                // Draw to 'real' target
+                {
+                    var context = this.target.getContext("2d");
+                    this.tileEdgeToRender.setContextTransform(context);
+                    var smooth = true;
+                    context.msImageSmoothingEnabled = smooth;
+                    context.mozImageSmoothingEnabled = smooth;
+                    context.webkitImageSmoothingEnabled = smooth;
+                    context.imageSmoothingEnabled = smooth;
+                    context.drawImage(this.canvas, minTileX, minTileY, this.canvas.width / tileW, this.canvas.height / tileH);
+                }
+                var tEnd = Date.now();
+                var prefix = this.debugName === undefined ? "" : this.debugName + " ";
+                tiles.benchmark(prefix + "precalc", tStartRenderToCanvas - tStart);
+                tiles.benchmark(prefix + "render to canvas", tStartRenderToTarget - tStartRenderToCanvas);
+                tiles.benchmark(prefix + "render to target", tEnd - tStartRenderToTarget);
+                tiles.benchmark(prefix + "update benchmarks", Date.now() - tEnd);
+            };
+            /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
+            DenseTileRenderer.prototype.pixelToTileCenter = function (pixel) { return this.domToTileCenter.xformPoint(pixel); };
             Object.defineProperty(DenseTileRenderer.prototype, "actuallyRoundPixel", {
                 get: function () { return this.roundPixel; } // consider ignoring if rotation isn't a multiple of pi/2 (90deg)?
                 ,
                 enumerable: true,
                 configurable: true
             });
+            DenseTileRenderer.prototype.ensureCanvasSizeTiles = function (canvas, w, h) { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); };
             Object.defineProperty(DenseTileRenderer.prototype, "viewportAnchorPixel", {
+                // Layout
                 get: function () {
                     var x = this.target.width * this.viewportAnchor.x;
                     var y = this.target.height * this.viewportAnchor.y;
@@ -392,73 +424,42 @@ var mmk;
                 enumerable: true,
                 configurable: true
             });
-            DenseTileRenderer.prototype.ensureCanvasSizeTiles = function (canvas, w, h) { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); };
-            DenseTileRenderer.prototype.render = function () {
-                var tStart = Date.now();
-                var target = this.target;
-                var tileW = this.tileSize.w;
-                var tileH = this.tileSize.h;
-                var renderToTileCenter = this.renderToTileCenter;
-                var tl = renderToTileCenter.xformPoint(tiles.xy(0, 0));
-                var tr = renderToTileCenter.xformPoint(tiles.xy(target.width, 0));
-                var br = renderToTileCenter.xformPoint(tiles.xy(target.width, target.height));
-                var bl = renderToTileCenter.xformPoint(tiles.xy(0, target.height));
-                var minTileX = Math.round(Math.min(tl.x, tr.x, br.x, bl.x));
-                var minTileY = Math.round(Math.min(tl.y, tr.y, br.y, bl.y));
-                var maxTileX = Math.round(Math.max(tl.x, tr.x, br.x, bl.x));
-                var maxTileY = Math.round(Math.max(tl.y, tr.y, br.y, bl.y));
-                var tilesWide = maxTileX - minTileX + 1;
-                var tilesTall = maxTileY - minTileY + 1;
-                var getTile = this.getTile;
-                var tStartRenderToCanvas = Date.now();
-                // v1: Brute force
-                {
-                    var canvas = this.canvas;
-                    this.ensureCanvasSizeTiles(canvas, maxTileX - minTileX + 1, maxTileY - minTileY + 1);
-                    var context = canvas.getContext("2d");
-                    context.clearRect(0, 0, canvas.width, canvas.height);
-                    for (var tileDy = 0; tileDy < tilesTall; ++tileDy)
-                        for (var tileDx = 0; tileDx < tilesWide; ++tileDx) {
-                            var tileX = tileDx + minTileX;
-                            var tileY = tileDy + minTileY;
-                            var tilePixelX = tileDx * tileW;
-                            var tilePixelY = tileDy * tileH;
-                            var sprites = getTile(tileX, tileY);
-                            for (var i = 0; i < sprites.length; ++i) {
-                                var sprite = sprites[i];
-                                if (sprite !== undefined)
-                                    sprite.drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
-                            }
-                        }
-                }
-                var tStartRenderToTarget = Date.now();
-                // Draw to 'real' target
-                {
-                    var context = this.target.getContext("2d");
-                    this.tileEdgeToRender.setContextTransform(context);
-                    var smooth = true;
-                    context.msImageSmoothingEnabled = smooth;
-                    context.mozImageSmoothingEnabled = smooth;
-                    context.webkitImageSmoothingEnabled = smooth;
-                    context.imageSmoothingEnabled = smooth;
-                    context.drawImage(this.canvas, minTileX, minTileY, this.canvas.width / tileW, this.canvas.height / tileH);
-                }
-                var tEnd = Date.now();
-                var prefix = this.debugName === undefined ? "" : this.debugName + " ";
-                tiles.benchmark(prefix + "precalc", tStartRenderToCanvas - tStart);
-                tiles.benchmark(prefix + "render to canvas", tStartRenderToTarget - tStartRenderToCanvas);
-                tiles.benchmark(prefix + "render to target", tEnd - tStartRenderToTarget);
-                tiles.benchmark(prefix + "update benchmarks", Date.now() - tEnd);
-            };
-            /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
-            DenseTileRenderer.prototype.pixelToTileCenter = function (pixel) { return this.domToTileCenter.xformPoint(pixel); };
             return DenseTileRenderer;
         }());
         tiles.DenseTileRenderer = DenseTileRenderer;
-        function createDenseMapLayerRenderer(config) {
-            return new DenseTileRenderer(config);
+        function ensureCanvasSizePixels(canvas, w, h) {
+            var dirty = false;
+            if (canvas.width < w) {
+                canvas.width = w;
+                dirty = true;
+            }
+            if (canvas.height < h) {
+                canvas.height = h;
+                dirty = true;
+            }
+            return dirty;
         }
-        tiles.createDenseMapLayerRenderer = createDenseMapLayerRenderer;
+        function parseBool(s) {
+            if (s === undefined || s == null)
+                return s;
+            if (s.toLowerCase() === "true")
+                return true;
+            if (s.toLowerCase() === "false")
+                return false;
+            return undefined;
+        }
+        function parseXY(s) {
+            if (s === undefined || s == null)
+                return s;
+            var _a = s.split(',').map(parseFloat), x = _a[0], y = _a[1];
+            return { x: x, y: y };
+        }
+        function parseSize(s) {
+            var xy = parseXY(s);
+            if (!xy)
+                return xy; // null, undefined
+            return tiles.size(xy.x, xy.y);
+        }
     })(tiles = mmk.tiles || (mmk.tiles = {}));
 })(mmk || (mmk = {}));
 // Copyright 2017 MaulingMonkey
