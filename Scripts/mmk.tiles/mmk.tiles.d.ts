@@ -51,8 +51,8 @@ declare namespace mmk.tiles {
     }
 }
 declare namespace mmk.tiles {
-    function eachFrame(onFrame: () => void): void;
-    function eachFrameWhile(onFrame: () => boolean): void;
+    function eachFrame(onFrame: (dt: number) => void): void;
+    function eachFrameWhile(onFrame: (dt: number) => boolean): void;
 }
 declare namespace mmk.tiles {
     /**

@@ -177,7 +177,7 @@ namespace mmk.tiles {
 				.translate(-this.tileFocus.x, -this.tileFocus.y)             // -> relative to the center   of tile 0,0  in tiles
 				.scale(this.tileSize.w*this.zoom, this.tileSize.h*this.zoom) // -> relative to the top left of tileFocus in tiles
 				.translate(tileAnchorPixel.x, tileAnchorPixel.y)             // -> relative to the top left of tileFocus in pixels
-				.rotate(-this.rotation)                                      // -> relative to the   rotated frame centered on the viewport anchor
+				.rotate(this.rotation)                                       // -> relative to the   rotated frame centered on the viewport anchor
 				.translate(viewportAnchorPixel.x, viewportAnchorPixel.y)     // -> relative to the unrotated frame centered on the viewport anchor
 				;
 		}

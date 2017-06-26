@@ -13,21 +13,19 @@
 // limitations under the License.
 
 namespace mmk.tiles {
-	export function eachFrame(onFrame: ()=>void) {
-		let callback : ()=>void;
-		callback = function(){
-			requestAnimationFrame(callback);
-			onFrame();
-		};
-		callback();
+	export function eachFrame(onFrame: (dt: number)=>void) {
+		eachFrameWhile(dt => { onFrame(dt); return true; });
 	}
 
-	export function eachFrameWhile(onFrame: ()=>boolean) {
+	export function eachFrameWhile(onFrame: (dt: number)=>boolean) {
 		let callback : ()=>void;
 		let t : number;
+		let prev = Date.now();
 		callback = function(){
 			t = requestAnimationFrame(callback);
-			if (!onFrame()) cancelAnimationFrame(t);
+			let now = Date.now();
+			if (!onFrame((now-prev)/1000)) cancelAnimationFrame(t);
+			prev = now;
 		};
 		callback();
 	}

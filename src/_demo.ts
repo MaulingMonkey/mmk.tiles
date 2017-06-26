@@ -51,7 +51,7 @@ namespace mmk.tiles {
 		target.addEventListener("mousemove", function (ev) { mousePixel = { x: ev.offsetX, y: ev.offsetY }; });
 
 		let imgData : ImageData;
-		eachFrame(function(){
+		eachFrame(function(dt){
 			let start = Date.now();
 			let mouseTile = renderer.pixelToTileCenter(mousePixel);
 			curX = Math.round(mouseTile.x);
@@ -62,7 +62,7 @@ namespace mmk.tiles {
 				c.setTransform(1,0,0,1,0,0);
 				c.clearRect(0,0,target.width,target.height);
 			});
-			renderer.rotation = Math.cos(Date.now()/1000)/10;
+			renderer.rotation += dt/10;
 			renderer.render();
 			let end = Date.now();
 			benchmark("---------------------------", 0);

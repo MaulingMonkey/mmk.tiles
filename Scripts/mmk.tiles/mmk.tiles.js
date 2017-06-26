@@ -47,7 +47,7 @@ var mmk;
             var renderer = tiles_1.createDenseMapLayerRenderer({ target: target, getTile: getTile });
             target.addEventListener("mousemove", function (ev) { mousePixel = { x: ev.offsetX, y: ev.offsetY }; });
             var imgData;
-            tiles_1.eachFrame(function () {
+            tiles_1.eachFrame(function (dt) {
                 var start = Date.now();
                 var mouseTile = renderer.pixelToTileCenter(mousePixel);
                 curX = Math.round(mouseTile.x);
@@ -57,7 +57,7 @@ var mmk;
                     c.setTransform(1, 0, 0, 1, 0, 0);
                     c.clearRect(0, 0, target.width, target.height);
                 });
-                renderer.rotation = Math.cos(Date.now() / 1000) / 10;
+                renderer.rotation += dt / 10;
                 renderer.render();
                 var end = Date.now();
                 tiles_1.benchmark("---------------------------", 0);
@@ -399,7 +399,7 @@ var mmk;
                         .translate(-this.tileFocus.x, -this.tileFocus.y) // -> relative to the center   of tile 0,0  in tiles
                         .scale(this.tileSize.w * this.zoom, this.tileSize.h * this.zoom) // -> relative to the top left of tileFocus in tiles
                         .translate(tileAnchorPixel.x, tileAnchorPixel.y) // -> relative to the top left of tileFocus in pixels
-                        .rotate(-this.rotation) // -> relative to the   rotated frame centered on the viewport anchor
+                        .rotate(this.rotation) // -> relative to the   rotated frame centered on the viewport anchor
                         .translate(viewportAnchorPixel.x, viewportAnchorPixel.y) // -> relative to the unrotated frame centered on the viewport anchor
                     ;
                 },
@@ -486,21 +486,19 @@ var mmk;
     var tiles;
     (function (tiles) {
         function eachFrame(onFrame) {
-            var callback;
-            callback = function () {
-                requestAnimationFrame(callback);
-                onFrame();
-            };
-            callback();
+            eachFrameWhile(function (dt) { onFrame(dt); return true; });
         }
         tiles.eachFrame = eachFrame;
         function eachFrameWhile(onFrame) {
             var callback;
             var t;
+            var prev = Date.now();
             callback = function () {
                 t = requestAnimationFrame(callback);
-                if (!onFrame())
+                var now = Date.now();
+                if (!onFrame((now - prev) / 1000))
                     cancelAnimationFrame(t);
+                prev = now;
             };
             callback();
         }
