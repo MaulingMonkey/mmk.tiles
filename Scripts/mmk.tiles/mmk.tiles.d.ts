@@ -48,6 +48,38 @@ declare namespace mmk.tiles {
     function eachFrameWhile(onFrame: () => boolean): void;
 }
 declare namespace mmk.tiles {
+    /**
+     * Represents a 3x2 matrix - except when it pretends to be 3x3 with an implicit identity row ;)
+     *
+     * | ax bx ox |
+     * | ay by oy |
+     * | 0  0  1  |
+     */
+    class Matrix3x2 {
+        ax: number;
+        ay: number;
+        bx: number;
+        by: number;
+        ox: number;
+        oy: number;
+        constructor(ax: number, ay: number, bx: number, by: number, ox: number, oy: number);
+        clone(): Matrix3x2;
+        static identity: Matrix3x2;
+        static translate(dx: number, dy: number): Matrix3x2;
+        static rotate(radians: number): Matrix3x2;
+        static scale(sx: number, sy?: number): Matrix3x2;
+        translate(dx: number, dy: number): Matrix3x2;
+        rotate(radians: number): Matrix3x2;
+        scale(sx: number, sy?: number): Matrix3x2;
+        static mul(...matricies: Matrix3x2[]): Matrix3x2;
+        /** Transforms a point or vector by the full matrix */
+        xformPoint(xy: XY): XY;
+        /** Slices the last column / pretends we're multiplying by the 2x2 subset of the matrix.  Useful to avoid translating directional vectors, normals, etc. */
+        xformNormal(xy: XY): XY;
+        setContextTransform(context: CanvasRenderingContext2D): void;
+    }
+}
+declare namespace mmk.tiles {
     interface XY {
         x: number;
         y: number;

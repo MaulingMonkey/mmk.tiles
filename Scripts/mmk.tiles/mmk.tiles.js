@@ -480,6 +480,141 @@ var mmk;
 (function (mmk) {
     var tiles;
     (function (tiles) {
+        /**
+         * Represents a 3x2 matrix - except when it pretends to be 3x3 with an implicit identity row ;)
+         *
+         * | ax bx ox |
+         * | ay by oy |
+         * | 0  0  1  |
+         */
+        var Matrix3x2 = (function () {
+            function Matrix3x2(ax, ay, bx, by, ox, oy) {
+                this.ax = ax;
+                this.ay = ay;
+                this.bx = bx;
+                this.by = by;
+                this.ox = ox;
+                this.oy = oy;
+            }
+            Matrix3x2.prototype.clone = function () { return new Matrix3x2(this.ax, this.ay, this.bx, this.by, this.ox, this.oy); };
+            Object.defineProperty(Matrix3x2, "identity", {
+                get: function () { return new Matrix3x2(1, 0, 0, 1, 0, 0); },
+                enumerable: true,
+                configurable: true
+            });
+            Matrix3x2.translate = function (dx, dy) { return new Matrix3x2(1, 0, 0, 1, dx, dy); };
+            Matrix3x2.rotate = function (radians) { var cos = Math.cos(radians); var sin = Math.sin(radians); return new Matrix3x2(cos, sin, -sin, cos, 0, 0); };
+            Matrix3x2.scale = function (sx, sy) {
+                if (sy === void 0) { sy = sx; }
+                return new Matrix3x2(sx, 0, 0, sy, 0, 0);
+            };
+            Matrix3x2.prototype.translate = function (dx, dy) { return Matrix3x2.mul(this, Matrix3x2.translate(dx, dy)); };
+            Matrix3x2.prototype.rotate = function (radians) { return Matrix3x2.mul(this, Matrix3x2.rotate(radians)); };
+            Matrix3x2.prototype.scale = function (sx, sy) {
+                if (sy === void 0) { sy = sx; }
+                return Matrix3x2.mul(this, Matrix3x2.scale(sx, sy));
+            };
+            Matrix3x2.mul = function () {
+                var matricies = [];
+                for (var _i = 0; _i < arguments.length; _i++) {
+                    matricies[_i - 0] = arguments[_i];
+                }
+                if (matricies.length === 0)
+                    return Matrix3x2.identity;
+                if (matricies.length === 1)
+                    return matricies[0].clone(); // 
+                var _a = matricies[0], ax = _a.ax, ay = _a.ay, bx = _a.bx, by = _a.by, ox = _a.ox, oy = _a.oy;
+                for (var i = 1; i < matricies.length; ++i) {
+                    var r = matricies[i];
+                    // "every row" dot "every column"
+                    var row0 = [ax, bx, ox];
+                    var row1 = [ay, by, oy];
+                    var col0 = [r.ax, r.ay, 0];
+                    var col1 = [r.bx, r.by, 0];
+                    var col2 = [r.ox, r.oy, 1];
+                    ax = dot(row0, col0);
+                    ay = dot(row1, col0);
+                    bx = dot(row0, col1);
+                    by = dot(row1, col1);
+                    ox = dot(row0, col2);
+                    oy = dot(row1, col2);
+                    // Sanity check "row2" dot "colN"
+                    console.assert(dot([0, 0, 1], col0) === 0);
+                    console.assert(dot([0, 0, 1], col1) === 0);
+                    console.assert(dot([0, 0, 1], col2) === 1);
+                }
+                return new Matrix3x2(ax, ay, bx, by, ox, oy);
+            };
+            /** Transforms a point or vector by the full matrix */
+            Matrix3x2.prototype.xformPoint = function (xy) {
+                var a = xy.x;
+                var b = xy.y;
+                var x = a * this.ax + b * this.bx + 1 * this.ox;
+                var y = a * this.ay + b * this.by + 1 * this.oy;
+                return { x: x, y: y };
+            };
+            /** Slices the last column / pretends we're multiplying by the 2x2 subset of the matrix.  Useful to avoid translating directional vectors, normals, etc. */
+            Matrix3x2.prototype.xformNormal = function (xy) {
+                var a = xy.x;
+                var b = xy.y;
+                var x = a * this.ax + b * this.bx; // + 0*this.ox;
+                var y = a * this.ay + b * this.by; // + 0*this.oy;
+                return { x: x, y: y };
+            };
+            Matrix3x2.prototype.setContextTransform = function (context) {
+                context.setTransform(this.ax, this.ay, this.bx, this.by, this.ox, this.oy); // ?
+            };
+            return Matrix3x2;
+        }());
+        tiles.Matrix3x2 = Matrix3x2;
+        function dot(l, r) {
+            console.assert(l.length === r.length);
+            var s = 0;
+            for (var i = 0, n = l.length; i < n; ++i)
+                s += l[i] * r[i];
+            return s;
+        }
+        function unitTests() {
+            var approxLimit = 0.001;
+            function approxEqualXY(a, b) { return Math.abs(a.x - b.x) < approxLimit && Math.abs(a.y - b.y) < approxLimit; }
+            function assertApproxEqualXY(a, b) { console.assert(approxEqualXY(a, b), "should be equal:\n\tA =", a, "\n\tB =", b); }
+            var rot90 = Matrix3x2.rotate(Math.PI / 2);
+            assertApproxEqualXY(Matrix3x2.identity.xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix3x2.identity.xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix3x2.rotate(Math.PI).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix3x2.rotate(Math.PI).xformNormal(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix3x2.rotate(2 * Math.PI).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix3x2.rotate(2 * Math.PI).xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix3x2.rotate(Math.PI / 2).rotate(Math.PI / 2).rotate(Math.PI / 2).rotate(Math.PI / 2).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix3x2.rotate(-Math.PI / 2).rotate(-Math.PI / 2).rotate(-Math.PI / 2).rotate(-Math.PI / 2).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix3x2.mul(rot90, rot90, rot90, rot90).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix3x2.scale(3).xformPoint(tiles.xy(2, 3)), tiles.xy(6, 9));
+            assertApproxEqualXY(Matrix3x2.scale(-1).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix3x2.scale(-1, -1).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix3x2.scale(-1, -1).xformNormal(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix3x2.translate(1, 5).xformPoint(tiles.xy(2, 3)), tiles.xy(3, 8));
+            assertApproxEqualXY(Matrix3x2.translate(1, 5).xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
+        }
+        addEventListener("load", unitTests);
+    })(tiles = mmk.tiles || (mmk.tiles = {}));
+})(mmk || (mmk = {}));
+// Copyright 2017 MaulingMonkey
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+var mmk;
+(function (mmk) {
+    var tiles;
+    (function (tiles) {
         function xy(x, y) { return { x: x, y: y }; }
         tiles.xy = xy;
         function size(w, h) { return { w: w, h: h }; }
