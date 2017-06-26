@@ -20,4 +20,21 @@ namespace mmk.tiles {
 	export function xy(x: number, y: number): XY { return {x,y}; }
 	export function size(w: number, h: number): Size { return {w,h}; }
 	export function rect(x: number, y: number, w: number, h: number): Rect { return {x,y,w,h}; }
+
+	export function roundRect(r: Rect): Rect {
+		return rect(Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h));
+	}
+
+	export function fitSizeWithinRect(size: Size, bounds: Rect): Rect {
+		const scaleW = bounds.w / size.w;
+		const scaleH = bounds.h / size.h;
+		const scale = Math.min(scaleW,scaleH);
+
+		const w = size.w * scale;
+		const h = size.h * scale;
+		const x = bounds.x + (bounds.w - w)/2;
+		const y = bounds.y + (bounds.h - h)/2;
+
+		return {x,y,w,h};
+	}
 }

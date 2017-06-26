@@ -266,19 +266,6 @@ var mmk;
             }
             return dirty;
         }
-        function pixelToTile(o, pixel) {
-            var cos = o.cos, sin = o.sin;
-            // relative to the unrotated frame centered on the viewport anchor
-            var VAdx = pixel.x - o.viewportAnchorX;
-            var VAdy = pixel.y - o.viewportAnchorY;
-            // relative to the rotated frame centered on the viewport anchor
-            var RVAdx = VAdx * cos - VAdy * sin;
-            var RVAdy = VAdx * sin + VAdy * cos;
-            // TODO: Hoist -0.5s to focusX/Y?
-            var x = (RVAdx - o.tileAnchorX) / o.tileW - 0.5 + o.focusX;
-            var y = (RVAdy - o.tileAnchorY) / o.tileH - 0.5 + o.focusY;
-            return { x: x, y: y };
-        }
         function parseBool(s) {
             if (s === undefined || s == null)
                 return s;
@@ -334,17 +321,103 @@ var mmk;
                 this.roundPixel = initFromAttr("data-round-to-pixel", parseBool, false);
                 this.zoom = initFromAttr("data-zoom", parseFloat, 1);
             }
+            Object.defineProperty(DenseTileRenderer.prototype, "actuallyRoundPixel", {
+                get: function () { return this.roundPixel; } // consider ignoring if rotation isn't a multiple of pi/2 (90deg)?
+                ,
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(DenseTileRenderer.prototype, "viewportAnchorPixel", {
+                get: function () {
+                    var x = this.target.width * this.viewportAnchor.x;
+                    var y = this.target.height * this.viewportAnchor.y;
+                    if (this.actuallyRoundPixel) {
+                        x = Math.round(x);
+                        y = Math.round(y);
+                    }
+                    return { x: x, y: y };
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(DenseTileRenderer.prototype, "tileAnchorPixel", {
+                get: function () {
+                    var x = this.tileSize.w * this.tileAnchor.x;
+                    var y = this.tileSize.h * this.tileAnchor.y;
+                    if (this.actuallyRoundPixel) {
+                        x = Math.round(x);
+                        y = Math.round(y);
+                    }
+                    return { x: x, y: y };
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(DenseTileRenderer.prototype, "tileEdgeToRender", {
+                get: function () {
+                    var viewportAnchorPixel = this.viewportAnchorPixel;
+                    var tileAnchorPixel = this.tileAnchorPixel;
+                    return tiles.Matrix2x3
+                        .translate(-this.tileFocus.x, -this.tileFocus.y) // -> relative to the center   of tile 0,0  in tiles
+                        .scale(this.tileSize.w * this.zoom, this.tileSize.h * this.zoom) // -> relative to the top left of tileFocus in tiles
+                        .translate(tileAnchorPixel.x, tileAnchorPixel.y) // -> relative to the top left of tileFocus in pixels
+                        .rotate(-this.rotation) // -> relative to the   rotated frame centered on the viewport anchor
+                        .translate(viewportAnchorPixel.x, viewportAnchorPixel.y) // -> relative to the unrotated frame centered on the viewport anchor
+                    ;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(DenseTileRenderer.prototype, "renderToTileCenter", {
+                get: function () {
+                    var viewportAnchorPixel = this.viewportAnchorPixel;
+                    var tileAnchorPixel = this.tileAnchorPixel;
+                    return tiles.Matrix2x3
+                        .translate(-viewportAnchorPixel.x, -viewportAnchorPixel.y) // -> relative to the unrotated frame centered on the viewport anchor
+                        .rotate(this.rotation) // -> relative to the   rotated frame centered on the viewport anchor
+                        .translate(-tileAnchorPixel.x, -tileAnchorPixel.y) // -> relative to the top left of tileFocus in pixels
+                        .scale(1 / this.tileSize.w / this.zoom, 1 / this.tileSize.h / this.zoom) // -> relative to the top left of tileFocus in tiles
+                        .translate(-0.5, -0.5) // -> relative to the center   of tileFocus in tiles
+                        .translate(this.tileFocus.x, this.tileFocus.y) // -> relative to the center   of tile 0,0  in tiles
+                    ;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(DenseTileRenderer.prototype, "domToTileCenter", {
+                get: function () {
+                    var viewportAnchorPixel = this.viewportAnchorPixel;
+                    var tileAnchorPixel = this.tileAnchorPixel;
+                    return tiles.Matrix2x3.mul(this.domToRender, this.renderToTileCenter);
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(DenseTileRenderer.prototype, "domToRender", {
+                get: function () {
+                    var renderSize = tiles.size(this.target.width, this.target.height);
+                    var elementSize = tiles.rect(0, 0, this.target.clientWidth, this.target.clientHeight);
+                    var canvasCoords = tiles.roundRect(tiles.fitSizeWithinRect(renderSize, elementSize));
+                    var scaleX = renderSize.w / elementSize.w;
+                    var scaleY = renderSize.h / elementSize.h;
+                    return tiles.Matrix2x3.identity
+                        .scale(scaleX, scaleY)
+                        .translate(-canvasCoords.x, -canvasCoords.y);
+                },
+                enumerable: true,
+                configurable: true
+            });
             DenseTileRenderer.prototype.ensureCanvasSizeTiles = function (canvas, w, h) { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); };
             DenseTileRenderer.prototype.render = function () {
                 var tStart = Date.now();
-                var orient = this.bakeOrientation();
                 var target = this.target;
                 var tileW = this.tileSize.w;
                 var tileH = this.tileSize.h;
-                var tl = pixelToTile(orient, tiles.xy(0, 0));
-                var tr = pixelToTile(orient, tiles.xy(target.width, 0));
-                var br = pixelToTile(orient, tiles.xy(target.width, target.height));
-                var bl = pixelToTile(orient, tiles.xy(0, target.height));
+                var renderToTileCenter = this.renderToTileCenter;
+                var tl = renderToTileCenter.xformPoint(tiles.xy(0, 0));
+                var tr = renderToTileCenter.xformPoint(tiles.xy(target.width, 0));
+                var br = renderToTileCenter.xformPoint(tiles.xy(target.width, target.height));
+                var bl = renderToTileCenter.xformPoint(tiles.xy(0, target.height));
                 var minTileX = Math.round(Math.min(tl.x, tr.x, br.x, bl.x));
                 var minTileY = Math.round(Math.min(tl.y, tr.y, br.y, bl.y));
                 var maxTileX = Math.round(Math.max(tl.x, tr.x, br.x, bl.x));
@@ -377,8 +450,13 @@ var mmk;
                 // Draw to 'real' target
                 {
                     var context = this.target.getContext("2d");
-                    context.setTransform(orient.cos, -orient.sin, orient.sin, orient.cos, orient.viewportAnchorX, orient.viewportAnchorY);
-                    context.drawImage(this.canvas, orient.tileAnchorX + (minTileX - orient.focusX) * tileW, orient.tileAnchorY + (minTileY - orient.focusY) * tileH, this.canvas.width, this.canvas.height);
+                    this.tileEdgeToRender.setContextTransform(context);
+                    var smooth = true;
+                    context.msImageSmoothingEnabled = smooth;
+                    context.mozImageSmoothingEnabled = smooth;
+                    context.webkitImageSmoothingEnabled = smooth;
+                    context.imageSmoothingEnabled = smooth;
+                    context.drawImage(this.canvas, minTileX, minTileY, this.canvas.width / tileW, this.canvas.height / tileH);
                 }
                 var tEnd = Date.now();
                 var prefix = this.debugName === undefined ? "" : this.debugName + " ";
@@ -387,10 +465,8 @@ var mmk;
                 tiles.benchmark(prefix + "render to target", tEnd - tStartRenderToTarget);
                 tiles.benchmark(prefix + "update benchmarks", Date.now() - tEnd);
             };
-            DenseTileRenderer.prototype.pixelToTile = function (pixel) {
-                var baked = this.bakeOrientation();
-                return pixelToTile(baked, pixel);
-            };
+            /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
+            DenseTileRenderer.prototype.pixelToTile = function (pixel) { return this.domToTileCenter.xformPoint(pixel); };
             DenseTileRenderer.prototype.bakeOrientation = function () {
                 var target = this.target;
                 var rotation = this.rotation;
@@ -481,14 +557,14 @@ var mmk;
     var tiles;
     (function (tiles) {
         /**
-         * Represents a 3x2 matrix - except when it pretends to be 3x3 with an implicit identity row ;)
+         * Represents a 2x3 matrix - except when it pretends to be 3x3 with an implicit identity column ;)
          *
-         * | ax bx ox |
-         * | ay by oy |
-         * | 0  0  1  |
+         * | ax ay 0 |
+         * | bx by 0 |
+         * | ox oy 1 |
          */
-        var Matrix3x2 = (function () {
-            function Matrix3x2(ax, ay, bx, by, ox, oy) {
+        var Matrix2x3 = (function () {
+            function Matrix2x3(ax, ay, bx, by, ox, oy) {
                 this.ax = ax;
                 this.ay = ay;
                 this.bx = bx;
@@ -496,57 +572,58 @@ var mmk;
                 this.ox = ox;
                 this.oy = oy;
             }
-            Matrix3x2.prototype.clone = function () { return new Matrix3x2(this.ax, this.ay, this.bx, this.by, this.ox, this.oy); };
-            Object.defineProperty(Matrix3x2, "identity", {
-                get: function () { return new Matrix3x2(1, 0, 0, 1, 0, 0); },
+            Matrix2x3.prototype.clone = function () { return new Matrix2x3(this.ax, this.ay, this.bx, this.by, this.ox, this.oy); };
+            Object.defineProperty(Matrix2x3, "identity", {
+                get: function () { return new Matrix2x3(1, 0, 0, 1, 0, 0); },
                 enumerable: true,
                 configurable: true
             });
-            Matrix3x2.translate = function (dx, dy) { return new Matrix3x2(1, 0, 0, 1, dx, dy); };
-            Matrix3x2.rotate = function (radians) { var cos = Math.cos(radians); var sin = Math.sin(radians); return new Matrix3x2(cos, sin, -sin, cos, 0, 0); };
-            Matrix3x2.scale = function (sx, sy) {
+            Matrix2x3.translate = function (dx, dy) { return new Matrix2x3(1, 0, 0, 1, dx, dy); };
+            Matrix2x3.rotate = function (radians) { var cos = Math.cos(radians); var sin = Math.sin(radians); return new Matrix2x3(cos, sin, -sin, cos, 0, 0); };
+            Matrix2x3.scale = function (sx, sy) {
                 if (sy === void 0) { sy = sx; }
-                return new Matrix3x2(sx, 0, 0, sy, 0, 0);
+                return new Matrix2x3(sx, 0, 0, sy, 0, 0);
             };
-            Matrix3x2.prototype.translate = function (dx, dy) { return Matrix3x2.mul(this, Matrix3x2.translate(dx, dy)); };
-            Matrix3x2.prototype.rotate = function (radians) { return Matrix3x2.mul(this, Matrix3x2.rotate(radians)); };
-            Matrix3x2.prototype.scale = function (sx, sy) {
+            Matrix2x3.prototype.translate = function (dx, dy) { return Matrix2x3.mul(this, Matrix2x3.translate(dx, dy)); };
+            Matrix2x3.prototype.rotate = function (radians) { return Matrix2x3.mul(this, Matrix2x3.rotate(radians)); };
+            Matrix2x3.prototype.scale = function (sx, sy) {
                 if (sy === void 0) { sy = sx; }
-                return Matrix3x2.mul(this, Matrix3x2.scale(sx, sy));
+                return Matrix2x3.mul(this, Matrix2x3.scale(sx, sy));
             };
-            Matrix3x2.mul = function () {
+            Matrix2x3.mul = function () {
                 var matricies = [];
                 for (var _i = 0; _i < arguments.length; _i++) {
                     matricies[_i - 0] = arguments[_i];
                 }
                 if (matricies.length === 0)
-                    return Matrix3x2.identity;
+                    return Matrix2x3.identity;
                 if (matricies.length === 1)
-                    return matricies[0].clone(); // 
+                    return matricies[0].clone();
                 var _a = matricies[0], ax = _a.ax, ay = _a.ay, bx = _a.bx, by = _a.by, ox = _a.ox, oy = _a.oy;
                 for (var i = 1; i < matricies.length; ++i) {
                     var r = matricies[i];
                     // "every row" dot "every column"
-                    var row0 = [ax, bx, ox];
-                    var row1 = [ay, by, oy];
-                    var col0 = [r.ax, r.ay, 0];
-                    var col1 = [r.bx, r.by, 0];
-                    var col2 = [r.ox, r.oy, 1];
+                    var row0 = [ax, ay, 0];
+                    var row1 = [bx, by, 0];
+                    var row2 = [ox, oy, 1];
+                    var col0 = [r.ax, r.bx, r.ox];
+                    var col1 = [r.ay, r.by, r.oy];
+                    var col2 = [0, 0, 1];
                     ax = dot(row0, col0);
-                    ay = dot(row1, col0);
-                    bx = dot(row0, col1);
+                    bx = dot(row1, col0);
+                    ox = dot(row2, col0);
+                    ay = dot(row0, col1);
                     by = dot(row1, col1);
-                    ox = dot(row0, col2);
-                    oy = dot(row1, col2);
-                    // Sanity check "row2" dot "colN"
-                    console.assert(dot([0, 0, 1], col0) === 0);
-                    console.assert(dot([0, 0, 1], col1) === 0);
-                    console.assert(dot([0, 0, 1], col2) === 1);
+                    oy = dot(row2, col1);
+                    // Sanity check "rowN" dot "col2"
+                    console.assert(dot(row0, [0, 0, 1]) === 0);
+                    console.assert(dot(row1, [0, 0, 1]) === 0);
+                    console.assert(dot(row2, [0, 0, 1]) === 1);
                 }
-                return new Matrix3x2(ax, ay, bx, by, ox, oy);
+                return new Matrix2x3(ax, ay, bx, by, ox, oy);
             };
             /** Transforms a point or vector by the full matrix */
-            Matrix3x2.prototype.xformPoint = function (xy) {
+            Matrix2x3.prototype.xformPoint = function (xy) {
                 var a = xy.x;
                 var b = xy.y;
                 var x = a * this.ax + b * this.bx + 1 * this.ox;
@@ -554,19 +631,19 @@ var mmk;
                 return { x: x, y: y };
             };
             /** Slices the last column / pretends we're multiplying by the 2x2 subset of the matrix.  Useful to avoid translating directional vectors, normals, etc. */
-            Matrix3x2.prototype.xformNormal = function (xy) {
+            Matrix2x3.prototype.xformNormal = function (xy) {
                 var a = xy.x;
                 var b = xy.y;
                 var x = a * this.ax + b * this.bx; // + 0*this.ox;
                 var y = a * this.ay + b * this.by; // + 0*this.oy;
                 return { x: x, y: y };
             };
-            Matrix3x2.prototype.setContextTransform = function (context) {
+            Matrix2x3.prototype.setContextTransform = function (context) {
                 context.setTransform(this.ax, this.ay, this.bx, this.by, this.ox, this.oy); // ?
             };
-            return Matrix3x2;
+            return Matrix2x3;
         }());
-        tiles.Matrix3x2 = Matrix3x2;
+        tiles.Matrix2x3 = Matrix2x3;
         function dot(l, r) {
             console.assert(l.length === r.length);
             var s = 0;
@@ -578,22 +655,22 @@ var mmk;
             var approxLimit = 0.001;
             function approxEqualXY(a, b) { return Math.abs(a.x - b.x) < approxLimit && Math.abs(a.y - b.y) < approxLimit; }
             function assertApproxEqualXY(a, b) { console.assert(approxEqualXY(a, b), "should be equal:\n\tA =", a, "\n\tB =", b); }
-            var rot90 = Matrix3x2.rotate(Math.PI / 2);
-            assertApproxEqualXY(Matrix3x2.identity.xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
-            assertApproxEqualXY(Matrix3x2.identity.xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
-            assertApproxEqualXY(Matrix3x2.rotate(Math.PI).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
-            assertApproxEqualXY(Matrix3x2.rotate(Math.PI).xformNormal(tiles.xy(2, 3)), tiles.xy(-2, -3));
-            assertApproxEqualXY(Matrix3x2.rotate(2 * Math.PI).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
-            assertApproxEqualXY(Matrix3x2.rotate(2 * Math.PI).xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
-            assertApproxEqualXY(Matrix3x2.rotate(Math.PI / 2).rotate(Math.PI / 2).rotate(Math.PI / 2).rotate(Math.PI / 2).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
-            assertApproxEqualXY(Matrix3x2.rotate(-Math.PI / 2).rotate(-Math.PI / 2).rotate(-Math.PI / 2).rotate(-Math.PI / 2).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
-            assertApproxEqualXY(Matrix3x2.mul(rot90, rot90, rot90, rot90).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
-            assertApproxEqualXY(Matrix3x2.scale(3).xformPoint(tiles.xy(2, 3)), tiles.xy(6, 9));
-            assertApproxEqualXY(Matrix3x2.scale(-1).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
-            assertApproxEqualXY(Matrix3x2.scale(-1, -1).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
-            assertApproxEqualXY(Matrix3x2.scale(-1, -1).xformNormal(tiles.xy(2, 3)), tiles.xy(-2, -3));
-            assertApproxEqualXY(Matrix3x2.translate(1, 5).xformPoint(tiles.xy(2, 3)), tiles.xy(3, 8));
-            assertApproxEqualXY(Matrix3x2.translate(1, 5).xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
+            var rot90 = Matrix2x3.rotate(Math.PI / 2);
+            assertApproxEqualXY(Matrix2x3.identity.xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix2x3.identity.xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix2x3.rotate(Math.PI).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix2x3.rotate(Math.PI).xformNormal(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix2x3.rotate(2 * Math.PI).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix2x3.rotate(2 * Math.PI).xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix2x3.rotate(Math.PI / 2).rotate(Math.PI / 2).rotate(Math.PI / 2).rotate(Math.PI / 2).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix2x3.rotate(-Math.PI / 2).rotate(-Math.PI / 2).rotate(-Math.PI / 2).rotate(-Math.PI / 2).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix2x3.mul(rot90, rot90, rot90, rot90).xformPoint(tiles.xy(2, 3)), tiles.xy(2, 3));
+            assertApproxEqualXY(Matrix2x3.scale(3).xformPoint(tiles.xy(2, 3)), tiles.xy(6, 9));
+            assertApproxEqualXY(Matrix2x3.scale(-1).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix2x3.scale(-1, -1).xformPoint(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix2x3.scale(-1, -1).xformNormal(tiles.xy(2, 3)), tiles.xy(-2, -3));
+            assertApproxEqualXY(Matrix2x3.translate(1, 5).xformPoint(tiles.xy(2, 3)), tiles.xy(3, 8));
+            assertApproxEqualXY(Matrix2x3.translate(1, 5).xformNormal(tiles.xy(2, 3)), tiles.xy(2, 3));
         }
         addEventListener("load", unitTests);
     })(tiles = mmk.tiles || (mmk.tiles = {}));
@@ -621,6 +698,21 @@ var mmk;
         tiles.size = size;
         function rect(x, y, w, h) { return { x: x, y: y, w: w, h: h }; }
         tiles.rect = rect;
+        function roundRect(r) {
+            return rect(Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h));
+        }
+        tiles.roundRect = roundRect;
+        function fitSizeWithinRect(size, bounds) {
+            var scaleW = bounds.w / size.w;
+            var scaleH = bounds.h / size.h;
+            var scale = Math.min(scaleW, scaleH);
+            var w = size.w * scale;
+            var h = size.h * scale;
+            var x = bounds.x + (bounds.w - w) / 2;
+            var y = bounds.y + (bounds.h - h) / 2;
+            return { x: x, y: y, w: w, h: h };
+        }
+        tiles.fitSizeWithinRect = fitSizeWithinRect;
     })(tiles = mmk.tiles || (mmk.tiles = {}));
 })(mmk || (mmk = {}));
 // Copyright 2017 MaulingMonkey

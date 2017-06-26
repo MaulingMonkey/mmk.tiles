@@ -40,24 +40,6 @@ namespace mmk.tiles {
 		return dirty;
 	}
 
-	function pixelToTile(o: DenseTileRendererBakedOrientation, pixel: XY): XY {
-		const { cos, sin } = o;
-
-		// relative to the unrotated frame centered on the viewport anchor
-		const VAdx = pixel.x - o.viewportAnchorX;
-		const VAdy = pixel.y - o.viewportAnchorY;
-
-		// relative to the rotated frame centered on the viewport anchor
-		const RVAdx = VAdx * cos - VAdy * sin;
-		const RVAdy = VAdx * sin + VAdy * cos;
-
-		// TODO: Hoist -0.5s to focusX/Y?
-		const x = (RVAdx - o.tileAnchorX) / o.tileW - 0.5 + o.focusX;
-		const y = (RVAdy - o.tileAnchorY) / o.tileH - 0.5 + o.focusY;
-
-		return { x, y };
-	}
-
 	function parseBool(s: string): boolean {
 		if (s === undefined || s == null) return <any>s;
 		if (s.toLowerCase() === "true" ) return true;
@@ -91,6 +73,76 @@ namespace mmk.tiles {
 		roundPixel:     boolean;           // Should rendering snap to the nearest full pixel.  Pixel perfect rendering vs non-smooth scrolling.
 		zoom:           number;            // Unused/unimplemented - should be used to scale the size of visible tiles. 1 = default zoom, 2 = double size, 0.5 = half size, etc.
 
+		private get actuallyRoundPixel(): boolean { return this.roundPixel; } // consider ignoring if rotation isn't a multiple of pi/2 (90deg)?
+
+		private get viewportAnchorPixel(): XY {
+			let x = this.target.width  * this.viewportAnchor.x;
+			let y = this.target.height * this.viewportAnchor.y;
+			if (this.actuallyRoundPixel) {
+				x = Math.round(x);
+				y = Math.round(y);
+			}
+			return {x,y};
+		}
+
+		private get tileAnchorPixel(): XY {
+			let x = this.tileSize.w * this.tileAnchor.x;
+			let y = this.tileSize.h * this.tileAnchor.y;
+			if (this.actuallyRoundPixel) {
+				x = Math.round(x);
+				y = Math.round(y);
+			}
+			return {x,y};
+		}
+
+
+
+		private get tileEdgeToRender() {
+			const viewportAnchorPixel = this.viewportAnchorPixel;
+			const tileAnchorPixel = this.tileAnchorPixel;
+			return Matrix2x3
+				.translate(-this.tileFocus.x, -this.tileFocus.y)             // -> relative to the center   of tile 0,0  in tiles
+				.scale(this.tileSize.w*this.zoom, this.tileSize.h*this.zoom) // -> relative to the top left of tileFocus in tiles
+				.translate(tileAnchorPixel.x, tileAnchorPixel.y)             // -> relative to the top left of tileFocus in pixels
+				.rotate(-this.rotation)                                      // -> relative to the   rotated frame centered on the viewport anchor
+				.translate(viewportAnchorPixel.x, viewportAnchorPixel.y)     // -> relative to the unrotated frame centered on the viewport anchor
+				;
+		}
+
+		private get renderToTileCenter() {
+			const viewportAnchorPixel = this.viewportAnchorPixel;
+			const tileAnchorPixel = this.tileAnchorPixel;
+			return Matrix2x3
+				.translate(-viewportAnchorPixel.x, -viewportAnchorPixel.y)           // -> relative to the unrotated frame centered on the viewport anchor
+				.rotate   (this.rotation)                                            // -> relative to the   rotated frame centered on the viewport anchor
+				.translate(-tileAnchorPixel.x, -tileAnchorPixel.y)                   // -> relative to the top left of tileFocus in pixels
+				.scale    (1/this.tileSize.w/this.zoom, 1/this.tileSize.h/this.zoom) // -> relative to the top left of tileFocus in tiles
+				.translate(-0.5, -0.5)                                               // -> relative to the center   of tileFocus in tiles
+				.translate(this.tileFocus.x, this.tileFocus.y)                       // -> relative to the center   of tile 0,0  in tiles
+				;
+		}
+
+		private get domToTileCenter() {
+			const viewportAnchorPixel = this.viewportAnchorPixel;
+			const tileAnchorPixel = this.tileAnchorPixel;
+			return Matrix2x3.mul(this.domToRender, this.renderToTileCenter);
+		}
+
+		private get domToRender() {
+			const renderSize = size(this.target.width, this.target.height)
+			const elementSize = rect(0,0,this.target.clientWidth, this.target.clientHeight);
+			const canvasCoords = roundRect(fitSizeWithinRect(renderSize, elementSize));
+
+			const scaleX = renderSize.w/elementSize.w;
+			const scaleY = renderSize.h/elementSize.h;
+
+			return Matrix2x3.identity
+				.scale(scaleX, scaleY)
+				.translate(-canvasCoords.x, -canvasCoords.y)
+		}
+
+
+
 		private ensureCanvasSizeTiles(canvas: HTMLCanvasElement, w: number, h: number): boolean { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); }
 
 		constructor(config: DenseTileRendererConfig) {
@@ -123,15 +175,15 @@ namespace mmk.tiles {
 		render(): void {
 			let tStart = Date.now();
 
-			const orient = this.bakeOrientation();
 			const target = this.target;
 			const tileW = this.tileSize.w;
 			const tileH = this.tileSize.h;
 
-			const tl = pixelToTile(orient, xy(0,            0            ));
-			const tr = pixelToTile(orient, xy(target.width, 0            ));
-			const br = pixelToTile(orient, xy(target.width, target.height));
-			const bl = pixelToTile(orient, xy(0           , target.height));
+			const renderToTileCenter = this.renderToTileCenter;
+			const tl = renderToTileCenter.xformPoint(xy(0,            0            ));
+			const tr = renderToTileCenter.xformPoint(xy(target.width, 0            ));
+			const br = renderToTileCenter.xformPoint(xy(target.width, target.height));
+			const bl = renderToTileCenter.xformPoint(xy(0           , target.height));
 
 			const minTileX = Math.round(Math.min(tl.x, tr.x, br.x, bl.x));
 			const minTileY = Math.round(Math.min(tl.y, tr.y, br.y, bl.y));
@@ -170,8 +222,15 @@ namespace mmk.tiles {
 			// Draw to 'real' target
 			{
 				const context = this.target.getContext("2d");
-				context.setTransform(orient.cos, -orient.sin, orient.sin, orient.cos, orient.viewportAnchorX, orient.viewportAnchorY);
-				context.drawImage(this.canvas, orient.tileAnchorX + (minTileX - orient.focusX) * tileW, orient.tileAnchorY + (minTileY - orient.focusY) * tileH, this.canvas.width, this.canvas.height);
+				this.tileEdgeToRender.setContextTransform(context);
+
+				const smooth = true;
+				context.msImageSmoothingEnabled     = smooth;
+				context.mozImageSmoothingEnabled    = smooth;
+				context.webkitImageSmoothingEnabled = smooth;
+				context.imageSmoothingEnabled       = smooth;
+
+				context.drawImage(this.canvas, minTileX, minTileY, this.canvas.width/tileW, this.canvas.height/tileH);
 			}
 
 			let tEnd = Date.now();
@@ -183,10 +242,8 @@ namespace mmk.tiles {
 			benchmark(prefix+"update benchmarks", Date.now()          - tEnd);
 		}
 
-		pixelToTile(pixel: XY): XY {
-			const baked = this.bakeOrientation();
-			return pixelToTile(baked, pixel);
-		}
+		/** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
+		pixelToTile(pixel: XY): XY { return this.domToTileCenter.xformPoint(pixel); }
 
 		private bakeOrientation(): DenseTileRendererBakedOrientation {
 			const target             = this.target;

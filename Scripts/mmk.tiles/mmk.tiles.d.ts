@@ -35,9 +35,17 @@ declare namespace mmk.tiles {
         rotation: number;
         roundPixel: boolean;
         zoom: number;
+        private actuallyRoundPixel;
+        private viewportAnchorPixel;
+        private tileAnchorPixel;
+        private tileEdgeToRender;
+        private renderToTileCenter;
+        private domToTileCenter;
+        private domToRender;
         private ensureCanvasSizeTiles(canvas, w, h);
         constructor(config: DenseTileRendererConfig);
         render(): void;
+        /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
         pixelToTile(pixel: XY): XY;
         private bakeOrientation();
     }
@@ -49,13 +57,13 @@ declare namespace mmk.tiles {
 }
 declare namespace mmk.tiles {
     /**
-     * Represents a 3x2 matrix - except when it pretends to be 3x3 with an implicit identity row ;)
+     * Represents a 2x3 matrix - except when it pretends to be 3x3 with an implicit identity column ;)
      *
-     * | ax bx ox |
-     * | ay by oy |
-     * | 0  0  1  |
+     * | ax ay 0 |
+     * | bx by 0 |
+     * | ox oy 1 |
      */
-    class Matrix3x2 {
+    class Matrix2x3 {
         ax: number;
         ay: number;
         bx: number;
@@ -63,15 +71,15 @@ declare namespace mmk.tiles {
         ox: number;
         oy: number;
         constructor(ax: number, ay: number, bx: number, by: number, ox: number, oy: number);
-        clone(): Matrix3x2;
-        static identity: Matrix3x2;
-        static translate(dx: number, dy: number): Matrix3x2;
-        static rotate(radians: number): Matrix3x2;
-        static scale(sx: number, sy?: number): Matrix3x2;
-        translate(dx: number, dy: number): Matrix3x2;
-        rotate(radians: number): Matrix3x2;
-        scale(sx: number, sy?: number): Matrix3x2;
-        static mul(...matricies: Matrix3x2[]): Matrix3x2;
+        clone(): Matrix2x3;
+        static identity: Matrix2x3;
+        static translate(dx: number, dy: number): Matrix2x3;
+        static rotate(radians: number): Matrix2x3;
+        static scale(sx: number, sy?: number): Matrix2x3;
+        translate(dx: number, dy: number): Matrix2x3;
+        rotate(radians: number): Matrix2x3;
+        scale(sx: number, sy?: number): Matrix2x3;
+        static mul(...matricies: Matrix2x3[]): Matrix2x3;
         /** Transforms a point or vector by the full matrix */
         xformPoint(xy: XY): XY;
         /** Slices the last column / pretends we're multiplying by the 2x2 subset of the matrix.  Useful to avoid translating directional vectors, normals, etc. */
@@ -93,6 +101,8 @@ declare namespace mmk.tiles {
     function xy(x: number, y: number): XY;
     function size(w: number, h: number): Size;
     function rect(x: number, y: number, w: number, h: number): Rect;
+    function roundRect(r: Rect): Rect;
+    function fitSizeWithinRect(size: Size, bounds: Rect): Rect;
 }
 declare namespace mmk.tiles {
     interface SpriteRenderer {
