@@ -49,7 +49,7 @@ var mmk;
             var imgData;
             tiles_1.eachFrame(function () {
                 var start = Date.now();
-                var mouseTile = renderer.pixelToTile(mousePixel);
+                var mouseTile = renderer.pixelToTileCenter(mousePixel);
                 curX = Math.round(mouseTile.x);
                 curY = Math.round(mouseTile.y);
                 tiles_1.benchmark("clear demo", function () {
@@ -369,27 +369,12 @@ var mmk;
                 configurable: true
             });
             Object.defineProperty(DenseTileRenderer.prototype, "renderToTileCenter", {
-                get: function () {
-                    var viewportAnchorPixel = this.viewportAnchorPixel;
-                    var tileAnchorPixel = this.tileAnchorPixel;
-                    return tiles.Matrix2x3
-                        .translate(-viewportAnchorPixel.x, -viewportAnchorPixel.y) // -> relative to the unrotated frame centered on the viewport anchor
-                        .rotate(this.rotation) // -> relative to the   rotated frame centered on the viewport anchor
-                        .translate(-tileAnchorPixel.x, -tileAnchorPixel.y) // -> relative to the top left of tileFocus in pixels
-                        .scale(1 / this.tileSize.w / this.zoom, 1 / this.tileSize.h / this.zoom) // -> relative to the top left of tileFocus in tiles
-                        .translate(-0.5, -0.5) // -> relative to the center   of tileFocus in tiles
-                        .translate(this.tileFocus.x, this.tileFocus.y) // -> relative to the center   of tile 0,0  in tiles
-                    ;
-                },
+                get: function () { return this.tileEdgeToRender.inverse().translate(-0.5, -0.5); },
                 enumerable: true,
                 configurable: true
             });
             Object.defineProperty(DenseTileRenderer.prototype, "domToTileCenter", {
-                get: function () {
-                    var viewportAnchorPixel = this.viewportAnchorPixel;
-                    var tileAnchorPixel = this.tileAnchorPixel;
-                    return tiles.Matrix2x3.mul(this.domToRender, this.renderToTileCenter);
-                },
+                get: function () { return tiles.Matrix2x3.mul(this.domToRender, this.renderToTileCenter); },
                 enumerable: true,
                 configurable: true
             });
@@ -466,7 +451,7 @@ var mmk;
                 tiles.benchmark(prefix + "update benchmarks", Date.now() - tEnd);
             };
             /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
-            DenseTileRenderer.prototype.pixelToTile = function (pixel) { return this.domToTileCenter.xformPoint(pixel); };
+            DenseTileRenderer.prototype.pixelToTileCenter = function (pixel) { return this.domToTileCenter.xformPoint(pixel); };
             DenseTileRenderer.prototype.bakeOrientation = function () {
                 var target = this.target;
                 var rotation = this.rotation;
@@ -589,6 +574,37 @@ var mmk;
             Matrix2x3.prototype.scale = function (sx, sy) {
                 if (sy === void 0) { sy = sx; }
                 return Matrix2x3.mul(this, Matrix2x3.scale(sx, sy));
+            };
+            Matrix2x3.prototype.determinant = function () {
+                // http://mathworld.wolfram.com/Determinant.html
+                var _a = this, ax = _a.ax, ay = _a.ay, bx = _a.bx, by = _a.by, ox = _a.ox, oy = _a.oy;
+                return ax * by * 1
+                    - ay * bx * 1;
+            };
+            Matrix2x3.prototype.inverse = function () {
+                // http://mathworld.wolfram.com/MatrixInverse.html
+                var det = this.determinant();
+                console.assert(det !== 0);
+                var invDet = 1 / det;
+                var a11 = this.ax;
+                var a12 = this.ay;
+                var a13 = 0;
+                var a21 = this.bx;
+                var a22 = this.by;
+                var a23 = 0;
+                var a31 = this.ox;
+                var a32 = this.oy;
+                var a33 = 1;
+                var r11 = invDet * (a22 * a33 - a23 * a32);
+                var r12 = invDet * (a13 * a32 - a12 * a33); //const r13 = invDet*(a12*a23-a13*a22); // 1/det * 0 - 0
+                var r21 = invDet * (a23 * a31 - a21 * a33);
+                var r22 = invDet * (a11 * a33 - a13 * a31); //const r23 = invDet*(a13*a21-a11*a23); // 1/det * 0 - 0
+                var r31 = invDet * (a21 * a32 - a22 * a31);
+                var r32 = invDet * (a12 * a31 - a11 * a32); //const r33 = invDet*(a11*a22-a12*a21); // 1/det * det
+                //console.assert(Math.abs(r13-0) < 0.001);
+                //console.assert(Math.abs(r23-0) < 0.001);
+                //console.assert(Math.abs(r33-1) < 0.001);
+                return new Matrix2x3(r11, r12, r21, r22, r31, r32);
             };
             Matrix2x3.mul = function () {
                 var matricies = [];

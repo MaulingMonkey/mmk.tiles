@@ -46,7 +46,7 @@ declare namespace mmk.tiles {
         constructor(config: DenseTileRendererConfig);
         render(): void;
         /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
-        pixelToTile(pixel: XY): XY;
+        pixelToTileCenter(pixel: XY): XY;
         private bakeOrientation();
     }
     function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer;
@@ -79,6 +79,8 @@ declare namespace mmk.tiles {
         translate(dx: number, dy: number): Matrix2x3;
         rotate(radians: number): Matrix2x3;
         scale(sx: number, sy?: number): Matrix2x3;
+        determinant(): number;
+        inverse(): Matrix2x3;
         static mul(...matricies: Matrix2x3[]): Matrix2x3;
         /** Transforms a point or vector by the full matrix */
         xformPoint(xy: XY): XY;

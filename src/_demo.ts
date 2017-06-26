@@ -53,7 +53,7 @@ namespace mmk.tiles {
 		let imgData : ImageData;
 		eachFrame(function(){
 			let start = Date.now();
-			let mouseTile = renderer.pixelToTile(mousePixel);
+			let mouseTile = renderer.pixelToTileCenter(mousePixel);
 			curX = Math.round(mouseTile.x);
 			curY = Math.round(mouseTile.y);
 			benchmark("clear demo", function()

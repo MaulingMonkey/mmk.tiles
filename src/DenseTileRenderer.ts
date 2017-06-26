@@ -109,24 +109,8 @@ namespace mmk.tiles {
 				;
 		}
 
-		private get renderToTileCenter() {
-			const viewportAnchorPixel = this.viewportAnchorPixel;
-			const tileAnchorPixel = this.tileAnchorPixel;
-			return Matrix2x3
-				.translate(-viewportAnchorPixel.x, -viewportAnchorPixel.y)           // -> relative to the unrotated frame centered on the viewport anchor
-				.rotate   (this.rotation)                                            // -> relative to the   rotated frame centered on the viewport anchor
-				.translate(-tileAnchorPixel.x, -tileAnchorPixel.y)                   // -> relative to the top left of tileFocus in pixels
-				.scale    (1/this.tileSize.w/this.zoom, 1/this.tileSize.h/this.zoom) // -> relative to the top left of tileFocus in tiles
-				.translate(-0.5, -0.5)                                               // -> relative to the center   of tileFocus in tiles
-				.translate(this.tileFocus.x, this.tileFocus.y)                       // -> relative to the center   of tile 0,0  in tiles
-				;
-		}
-
-		private get domToTileCenter() {
-			const viewportAnchorPixel = this.viewportAnchorPixel;
-			const tileAnchorPixel = this.tileAnchorPixel;
-			return Matrix2x3.mul(this.domToRender, this.renderToTileCenter);
-		}
+		private get renderToTileCenter() { return this.tileEdgeToRender.inverse().translate(-0.5, -0.5); }
+		private get domToTileCenter()    { return Matrix2x3.mul(this.domToRender, this.renderToTileCenter); }
 
 		private get domToRender() {
 			const renderSize = size(this.target.width, this.target.height)
@@ -140,8 +124,6 @@ namespace mmk.tiles {
 				.scale(scaleX, scaleY)
 				.translate(-canvasCoords.x, -canvasCoords.y)
 		}
-
-
 
 		private ensureCanvasSizeTiles(canvas: HTMLCanvasElement, w: number, h: number): boolean { return ensureCanvasSizePixels(canvas, this.tileSize.w * w, this.tileSize.h * h); }
 
@@ -243,7 +225,7 @@ namespace mmk.tiles {
 		}
 
 		/** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
-		pixelToTile(pixel: XY): XY { return this.domToTileCenter.xformPoint(pixel); }
+		pixelToTileCenter(pixel: XY): XY { return this.domToTileCenter.xformPoint(pixel); }
 
 		private bakeOrientation(): DenseTileRendererBakedOrientation {
 			const target             = this.target;

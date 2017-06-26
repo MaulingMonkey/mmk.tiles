@@ -48,6 +48,41 @@ namespace mmk.tiles {
 		rotate   (radians: number)             { return Matrix2x3.mul(this, Matrix2x3.rotate   (radians)); }
 		scale    (sx: number, sy: number = sx) { return Matrix2x3.mul(this, Matrix2x3.scale    (sx,sy)  ); }
 
+		determinant() {
+			// http://mathworld.wolfram.com/Determinant.html
+
+			const {ax,ay,bx,by,ox,oy} = this;
+
+			return ax * by * 1
+				//- ax * 0 * oy
+				- ay * bx * 1
+				//+ ay * 0 * ox
+				//+ 0 * bx * oy
+				//- 0 * by * ox
+				;
+		}
+
+		inverse() {
+			// http://mathworld.wolfram.com/MatrixInverse.html
+
+			const det = this.determinant();
+			console.assert(det !== 0);
+			const invDet = 1/det;
+
+			const a11 = this.ax; const a12 = this.ay; const a13 = 0;
+			const a21 = this.bx; const a22 = this.by; const a23 = 0;
+			const a31 = this.ox; const a32 = this.oy; const a33 = 1;
+
+			const r11 = invDet*(a22*a33-a23*a32); const r12 = invDet*(a13*a32-a12*a33); //const r13 = invDet*(a12*a23-a13*a22); // 1/det * 0 - 0
+			const r21 = invDet*(a23*a31-a21*a33); const r22 = invDet*(a11*a33-a13*a31); //const r23 = invDet*(a13*a21-a11*a23); // 1/det * 0 - 0
+			const r31 = invDet*(a21*a32-a22*a31); const r32 = invDet*(a12*a31-a11*a32); //const r33 = invDet*(a11*a22-a12*a21); // 1/det * det
+
+			//console.assert(Math.abs(r13-0) < 0.001);
+			//console.assert(Math.abs(r23-0) < 0.001);
+			//console.assert(Math.abs(r33-1) < 0.001);
+			return new Matrix2x3(r11, r12, r21, r22, r31, r32);
+		}
+
 		static mul(...matricies: Matrix2x3[]): Matrix2x3 {
 			if (matricies.length === 0) return Matrix2x3.identity;
 			if (matricies.length === 1) return matricies[0].clone();
