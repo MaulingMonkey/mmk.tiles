@@ -23,11 +23,10 @@ namespace mmk.tiles {
 		const worldW = 100;
 		const worldH =  50;
 
-		let mousePixel : XY = { x: 0, y: 0 };
-		let curX = 3;
-		let curY = 3;
+		let mousePixel = xy(0,0);
+		let mouseTile  = xy(0,0);
 
-		function getTile(x: number, y: number): SpriteRenderer[] {
+		function getDense(x: number, y: number): SpriteRenderer[] {
 			let tiles : SpriteRenderer[] = [];
 
 			if ((0 <= x) && (x < worldW) && (0 <= y) && (y < worldH)) {
@@ -41,28 +40,34 @@ namespace mmk.tiles {
 
 				tiles.push(tileMap[bottomWall ? "wallBottom" : wall ? "wallTop" : "floorDot"]);
 			}
-			if (x === curX && y === curY) tiles.push(tileMap["selectTile"]);
-			if (x === 5 && y === 5) tiles.push(tileMap["selectDot"]);
 
 			return tiles;
 		}
 
-		let renderer = createDenseMapLayerRenderer({target, getTile});
+		function getSparse(): SpriteRef[] {
+			let a : SpriteRef[] = [];
+			a.push({x: Math.round(mouseTile.x), y: Math.round(mouseTile.y), sprite: tileMap["selectTile"]});
+			a.push({x:            mouseTile.x , y:            mouseTile.y , sprite: tileMap["selectDot"]});
+			return a;
+		}
+
+		let renderer = new RectTileMap(target);
+		renderer.layers.push({dense:  getDense });
+		renderer.layers.push({sparse: getSparse});
+		//renderer.layers.push({dense: getDense, sparse: getSparse});
 		target.addEventListener("mousemove", function (ev) { mousePixel = { x: ev.offsetX, y: ev.offsetY }; });
 
 		let imgData : ImageData;
 		eachFrame(function(dt){
 			let start = Date.now();
-			let mouseTile = renderer.pixelToTileCenter(mousePixel);
-			curX = Math.round(mouseTile.x);
-			curY = Math.round(mouseTile.y);
+			mouseTile = renderer.pixelToTileCenter(mousePixel);
 			benchmark("clear demo", function()
 			{
 				const c = target.getContext("2d");
 				c.setTransform(1,0,0,1,0,0);
 				c.clearRect(0,0,target.width,target.height);
 			});
-			renderer.rotation += dt/10;
+			renderer.rotation = (Date.now()%4000-2000)/10000;
 			renderer.render();
 			let end = Date.now();
 			benchmark("---------------------------", 0);

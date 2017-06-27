@@ -38,7 +38,7 @@
     <TypeScriptCompile Include="src\eachFrame.ts" />
     <TypeScriptCompile Include="src\Matrix2x3.ts" />
     <TypeScriptCompile Include="src\_demo.ts" />
-    <TypeScriptCompile Include="src\DenseTileRenderer.ts" />
+    <TypeScriptCompile Include="src\RectTileMap.ts" />
     <TypeScriptCompile Include="src\Rect.ts" />
     <TypeScriptCompile Include="src\SpriteRenderer.ts" />
   </ItemGroup>

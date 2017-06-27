@@ -13,21 +13,24 @@
 // limitations under the License.
 
 namespace mmk.tiles {
-	export function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer {
-		return new DenseTileRenderer(config);
+	export interface SpriteRef {
+		x: number;
+		y: number;
+		sprite: SpriteRenderer;
 	}
 
-	export type DenseMapCallback  = (x: number, y: number) => SpriteRenderer[];
+	export type RectTileMap_DenseCallback  = (x: number, y: number) => SpriteRenderer[];
+	export type RectTileMap_SparseCallback = () => SpriteRef[];
 
-	export interface DenseTileRendererConfig {
-		target:        HTMLCanvasElement;
-		getTile:       DenseMapCallback;
+	export interface RectTileMapLayer {
+		dense?:  RectTileMap_DenseCallback;
+		sparse?: RectTileMap_SparseCallback;
 	}
-	
-	export class DenseTileRenderer {
+
+	export class RectTileMap {
 		target:         HTMLCanvasElement; // The final target to render to
-		getTile:        DenseMapCallback;  // Callback to fetch the tile(s) to render at any given integer (x,y) coordinate.
 		private canvas: HTMLCanvasElement; // Internal buffer for seamless pixel-aligned composition before e.g. subpixel translation, rotation, etc.
+		layers:         RectTileMapLayer[];
 
 		debugName:      string;            // For benchmarking display only
 		tileSize:       Size;              // The baseline tile/grid size in "pixels".  Individual tile images might be larger if they overflow their tile, although DenseTileRenderer isn't coded to support this yet.
@@ -38,22 +41,21 @@ namespace mmk.tiles {
 		roundPixel:     boolean;           // Should rendering snap to the nearest full pixel.  Pixel perfect rendering vs non-smooth scrolling.
 		zoom:           number;            // Unused/unimplemented - should be used to scale the size of visible tiles. 1 = default zoom, 2 = double size, 0.5 = half size, etc.
 
-		constructor(config: DenseTileRendererConfig) {
-			console.assert(!!config.target,  "config.target required");
-			console.assert(!!config.getTile, "config.getTile required"); // FIXME: Allow DOM specified callback?
+		constructor(target: HTMLCanvasElement) {
+			console.assert(!!target, "config.target required");
 
 			function initFromAttr<T>(attribute: string, attributeParser: (attr: string)=>T, fallback: T): T {
-				let a = config.target.getAttribute(attribute);
+				let a = target.getAttribute(attribute);
 				if (a === undefined || a === null) return fallback;
 				let r : T;
-				try { r = attributeParser(a); } catch (e) { console.error(config.target,"bad",attribute,"value:",e); return fallback; }
-				if (r === undefined || r === null) { console.error(config.target,"bad",attribute,"value"); return fallback; }
+				try { r = attributeParser(a); } catch (e) { console.error(target,"bad",attribute,"value:",e); return fallback; }
+				if (r === undefined || r === null) { console.error(target,"bad",attribute,"value"); return fallback; }
 				return r;
 			}
 
-			this.target         = config.target;
-			this.getTile        = config.getTile;
+			this.target         = target;
 			this.canvas         = document.createElement("canvas");
+			this.layers         = [];
 
 			this.debugName      = initFromAttr("data-debug-name",      s=>s,       undefined      );
 			this.tileSize       = initFromAttr("data-tile-size",       parseSize,  size(16,  16 ) );
@@ -87,7 +89,6 @@ namespace mmk.tiles {
 			const tilesWide = maxTileX - minTileX + 1;
 			const tilesTall = maxTileY - minTileY + 1;
 
-			const getTile            = this.getTile;
 
 			let tStartRenderToCanvas = Date.now();
 
@@ -99,17 +100,45 @@ namespace mmk.tiles {
 				const context            = canvas.getContext("2d");
 				context.clearRect(0, 0, canvas.width, canvas.height);
 
-				for (let tileDy=0; tileDy<tilesTall; ++tileDy) for (let tileDx=0; tileDx<tilesWide; ++tileDx) {
-					const tileX = tileDx + minTileX;
-					const tileY = tileDy + minTileY;
-					const tilePixelX = tileDx * tileW;
-					const tilePixelY = tileDy * tileH;
-					const sprites = getTile(tileX, tileY);
-					for (let i=0; i<sprites.length; ++i) {
-						let sprite = sprites[i];
-						if (sprite !== undefined) sprite.drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
+				this.layers.forEach(function(layer){
+					// If we have both dense and sparse layers, rendering will be interleaved sorted by y.
+					// Note that this means a sparse tile at y=1.999 will be mostly overdrawn by a dense tile at y=2.000.
+					// If this isn't what you want, use seperate layers.
+					// "sparse" tiles at z=2 will draw after "dense" tiles at z=2.
+					const dense = layer.dense;
+					const sparse = layer.sparse;
+
+					let sparseEnts = sparse === undefined ? [] : sparse();
+					sparseEnts.sort(function (a,b) { return a.y-b.y; });
+					let looseI = 0;
+					while ((looseI < sparseEnts.length) && (sparseEnts[looseI].y < minTileY-1)) ++looseI;
+					function renderLooseBeforeTileY(y: number) {
+						for (;looseI < sparseEnts.length && sparseEnts[looseI].y < y; ++looseI) {
+							const e = sparseEnts[looseI];
+							if (e.sprite === undefined) continue;
+							const tilePixelX = (e.x-minTileX) * tileW;
+							const tilePixelY = (e.y-minTileY) * tileH;
+							e.sprite.drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
+						}
 					}
-				}
+
+					for (let tileDy=0; tileDy<tilesTall; ++tileDy) {
+						const tileY = tileDy + minTileY;
+						renderLooseBeforeTileY(tileY);
+						if (dense !== undefined) for (let tileDx=0; tileDx<tilesWide; ++tileDx) {
+							const tileX = tileDx + minTileX;
+							const tilePixelX = tileDx * tileW;
+							const tilePixelY = tileDy * tileH;
+							const sprites = dense(tileX, tileY);
+							for (let i=0; i<sprites.length; ++i) {
+								let sprite = sprites[i];
+								if (sprite !== undefined) sprite.drawToContext(context, tilePixelX, tilePixelY, tileW, tileH);
+							}
+						}
+					}
+
+					renderLooseBeforeTileY(maxTileY+1);
+				});
 			}
 
 			let tStartRenderToTarget = Date.now();

@@ -18,39 +18,6 @@ declare namespace mmk.tiles {
     };
 }
 declare namespace mmk.tiles {
-    function createDenseMapLayerRenderer(config: DenseTileRendererConfig): DenseTileRenderer;
-    type DenseMapCallback = (x: number, y: number) => SpriteRenderer[];
-    interface DenseTileRendererConfig {
-        target: HTMLCanvasElement;
-        getTile: DenseMapCallback;
-    }
-    class DenseTileRenderer {
-        target: HTMLCanvasElement;
-        getTile: DenseMapCallback;
-        private canvas;
-        debugName: string;
-        tileSize: Size;
-        tileFocus: XY;
-        tileAnchor: XY;
-        viewportAnchor: XY;
-        rotation: number;
-        roundPixel: boolean;
-        zoom: number;
-        constructor(config: DenseTileRendererConfig);
-        render(): void;
-        /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
-        pixelToTileCenter(pixel: XY): XY;
-        private actuallyRoundPixel;
-        private ensureCanvasSizeTiles(canvas, w, h);
-        private viewportAnchorPixel;
-        private tileAnchorPixel;
-        private tileEdgeToRender;
-        private renderToTileCenter;
-        private domToTileCenter;
-        private domToRender;
-    }
-}
-declare namespace mmk.tiles {
     function eachFrame(onFrame: (dt: number) => void): void;
     function eachFrameWhile(onFrame: (dt: number) => boolean): void;
 }
@@ -104,6 +71,44 @@ declare namespace mmk.tiles {
     function rect(x: number, y: number, w: number, h: number): Rect;
     function roundRect(r: Rect): Rect;
     function fitSizeWithinRect(size: Size, bounds: Rect): Rect;
+}
+declare namespace mmk.tiles {
+    interface SpriteRef {
+        x: number;
+        y: number;
+        sprite: SpriteRenderer;
+    }
+    type RectTileMap_DenseCallback = (x: number, y: number) => SpriteRenderer[];
+    type RectTileMap_SparseCallback = () => SpriteRef[];
+    interface RectTileMapLayer {
+        dense?: RectTileMap_DenseCallback;
+        sparse?: RectTileMap_SparseCallback;
+    }
+    class RectTileMap {
+        target: HTMLCanvasElement;
+        private canvas;
+        layers: RectTileMapLayer[];
+        debugName: string;
+        tileSize: Size;
+        tileFocus: XY;
+        tileAnchor: XY;
+        viewportAnchor: XY;
+        rotation: number;
+        roundPixel: boolean;
+        zoom: number;
+        constructor(target: HTMLCanvasElement);
+        render(): void;
+        /** Returns tile XY relative to center ignoring anchoring - e.g. 0,0 is always the center Gof tile 0,0 */
+        pixelToTileCenter(pixel: XY): XY;
+        private actuallyRoundPixel;
+        private ensureCanvasSizeTiles(canvas, w, h);
+        private viewportAnchorPixel;
+        private tileAnchorPixel;
+        private tileEdgeToRender;
+        private renderToTileCenter;
+        private domToTileCenter;
+        private domToRender;
+    }
 }
 declare namespace mmk.tiles {
     interface SpriteRenderer {
